@@ -1,0 +1,7 @@
+networks:
+  mainnet:
+    nodeURL: "https://preprod.gomaestro-api.org/v1"
+    timeOut: 30000
+    maxLRUCacheInstances: 10
+    utxosLimit: 100
+    defaultSlippage: 3
