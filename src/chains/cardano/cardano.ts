@@ -12,8 +12,12 @@ dotenv.config();
 
 import { CardanoController } from './cardano.controller';
 import {
+  AddressTransaction,
   MaestroClient,
   MaestroSupportedNetworks,
+  TransactionInfo,
+  TxManagerState,
+  TxsByAddressOrderEnum,
   Utxo,
 } from '@maestro-org/typescript-sdk';
 import fse from 'fs-extra';
@@ -253,27 +257,6 @@ export class Cardano {
     return utxos;
   }
 
-  // /**
-  //  * Gets an Cardano account from a secret key
-  //  * @param {string} secret - The secret key
-  //  * @returns {CardanoAccount}
-  //  */
-  // public getAccountFromSecretKey(secret: string): CardanoAccount {
-  //   const sks = new SecretKeys();
-  //   const secretKey = SecretKey.dlog_from_bytes(Buffer.from(secret, 'hex'));
-  //   const address = secretKey.get_address().to_base58(this._networkPrefix);
-
-  //   sks.add(secretKey);
-
-  //   const wallet = Wallet.from_secrets(sks);
-
-  //   return {
-  //     address,
-  //     wallet,
-  //     prover: new WalletProver(wallet, this._node),
-  //   };
-  // } // only get account from the mnemonic is supported
-
   /**
    * Gets an Cardano account from a mnemonic phrase
    * @param {string} mnemonic - The mnemonic phrase
@@ -425,7 +408,7 @@ export class Cardano {
   //  */
   // private async getAssetData() {
   //   return await this._node.assets.assetInfo.api.getAssetsMetadata();
-  // } // reason to not to use we have stored asset list
+  // } // we have stored asset list
 
   /**
    * Loads AMM pools
@@ -434,4 +417,674 @@ export class Cardano {
   private async loadPools(): Promise<void> {
     this._splashPools = await getSplashPools(this._dex);
   }
+
+  /**
+   * Performs a swap operation
+   * @param {CardanoAccount} account - The account performing the swap
+   * @param {string} baseToken - The base token symbol
+   * @param {string} quoteToken - The quote token symbol
+   * @param {BigNumber} value - The amount to swap
+   * @param {string} output_address - The address to receive the output
+   * @param {string} return_address - The address for change return
+   * @param {number} [slippage] - The slippage tolerance
+   * @returns {Promise<TradeResponse>} The trade response
+   */
+  public async swap(
+    account: CardanoAccount,
+    baseToken: string,
+    quoteToken: string,
+    value: BigNumber,
+    output_address: string,
+    return_address: string,
+    slippage?: number,
+  ): Promise<TradeResponse> {
+    const { realBaseToken, realQuoteToken, pool } = await this.findBestPool(
+      baseToken,
+      quoteToken,
+      value,
+      slippage,
+    );
+    const { sell, amount, from, to, minOutput } = this.calculateSwapParameters(
+      pool,
+      realBaseToken,
+      value,
+      slippage,
+    );
+
+    const config = getCardanoConfig(this.network);
+    const { baseInput, baseInputAmount } = getBaseInputParameters(pool, {
+      inputAmount: from,
+      slippage: slippage || config.network.defaultSlippage,
+    });
+
+    const networkContext = await this._explorer.getNetworkContext();
+    const txAssembler = new DefaultTxAssembler(this.network === 'mainnet');
+    const poolActions = this.getPoolActions(
+      output_address,
+      account,
+      txAssembler,
+    );
+
+    const utxos = await this.getAddressUnspentBoxes(account.address);
+    const swapVariables = this.calculateSwapVariables(config, minOutput);
+    const inputs = this.prepareInputs(
+      utxos,
+      from,
+      baseInputAmount,
+      config,
+      swapVariables[1],
+    );
+
+    const swapParams = this.createSwapParams(
+      pool,
+      output_address,
+      baseInput,
+      to,
+      swapVariables,
+      config,
+    );
+    const txContext = this.createTxContext(
+      inputs,
+      networkContext,
+      return_address,
+      config,
+    );
+
+    const actions = poolActions(pool);
+    const timestamp = await this.getBlockTimestamp(networkContext);
+    const tx = await actions.swap(swapParams, txContext);
+
+    await this.submitTransaction(account, tx);
+
+    return this.createTradeResponse(
+      realBaseToken,
+      realQuoteToken,
+      amount,
+      from,
+      minOutput,
+      pool,
+      sell,
+      config,
+      timestamp,
+      tx,
+    );
+  }
+
+  /**
+   * Estimates the price for a swap
+   * @param {string} baseToken - The base token symbol
+   * @param {string} quoteToken - The quote token symbol
+   * @param {BigNumber} value - The amount to swap
+   * @param {number} [slippage] - The slippage tolerance
+   * @returns {Promise<PriceResponse>} The price estimate
+   */
+  public async estimate(
+    baseToken: string,
+    quoteToken: string,
+    value: BigNumber,
+    slippage?: number,
+  ): Promise<PriceResponse> {
+    const { realBaseToken, realQuoteToken, pool } = await this.findBestPool(
+      baseToken,
+      quoteToken,
+      value,
+      slippage,
+    );
+    const { sell, amount, from, minOutput } = this.calculateSwapParameters(
+      pool,
+      realBaseToken,
+      value,
+      slippage,
+    );
+
+    const config = getCardanoConfig(this.network);
+    const expectedAmount = this.calculateExpectedAmount(minOutput, pool, sell);
+
+    return this.createPriceResponse(
+      realBaseToken,
+      realQuoteToken,
+      amount,
+      from,
+      minOutput,
+      pool,
+      sell,
+      config,
+      expectedAmount,
+    );
+  }
+
+  /**
+   * Finds the best pool for a given token pair and amount
+   * @param {string} baseToken - The base token symbol
+   * @param {string} quoteToken - The quote token symbol
+   * @param {BigNumber} value - The amount to swap
+   * @param {number} [slippage] - The slippage tolerance
+   * @returns {Promise<{ realBaseToken: CardanoAsset, realQuoteToken: CardanoAsset, pool: Pool }>}
+   */
+  private async findBestPool(
+    baseToken: string,
+    quoteToken: string,
+    value: BigNumber,
+    slippage?: number,
+  ): Promise<{
+    realBaseToken: CardanoAsset;
+    realQuoteToken: CardanoAsset;
+    pool: Pool;
+  }> {
+    const pools = this.getPoolByToken(baseToken, quoteToken);
+    if (!pools.length)
+      throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
+
+    const realBaseToken = this.findToken(baseToken);
+    const realQuoteToken = this.findToken(quoteToken);
+    if (!realBaseToken || !realQuoteToken)
+      throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
+    let bestPool: Pool | null = null;
+    let bestExpectedOut = BigNumber(0);
+
+    for (const pool of pools) {
+      const { minOutput } = this.calculateSwapParameters(
+        pool,
+        realBaseToken,
+        value,
+        slippage,
+      );
+      const expectedOut = this.calculateExpectedAmount(
+        minOutput,
+        pool,
+        pool.x.asset.id !== realBaseToken.tokenId,
+      );
+
+      if (expectedOut.gt(bestExpectedOut)) {
+        bestPool = pool;
+        bestExpectedOut = expectedOut;
+      }
+    }
+
+    if (!bestPool)
+      throw new Error(
+        `No suitable pool found for ${baseToken} and ${quoteToken}`,
+      );
+
+    return { realBaseToken, realQuoteToken, pool: bestPool };
+  }
+
+  /**
+   * Finds a token by its symbol
+   * @param {string} symbol - The token symbol
+   * @returns {CardanoAsset}
+   */
+  private findToken(symbol: string): CardanoAsset | undefined {
+    const token = this.storedAssetList.find((asset) => asset.symbol === symbol);
+    return token;
+  }
+
+  /**
+   * Calculates swap parameters for a given pool and amount
+   * @param {Pool} pool - The pool to use for the swap
+   * @param {CardanoAsset} baseToken - The base token
+   * @param {BigNumber} value - The amount to swap
+   * @param {number} [slippage] - The slippage tolerance
+   * @returns {{ sell: boolean, amount: BigNumber, from: any, to: any, minOutput: any }}
+   */
+  private calculateSwapParameters(
+    pool: Pool,
+    baseToken: CardanoAsset,
+    value: BigNumber,
+    slippage?: number,
+  ) {
+    const config = getCardanoConfig(this.network);
+    const sell = pool.x.asset.id !== baseToken.tokenId;
+    const amount = this.calculateAmount(pool, value, sell);
+
+    const max_to = {
+      asset: { id: sell ? pool.x.asset.id : pool.y.asset.id },
+      amount: BigInt(amount.toString()),
+    };
+
+    const from = {
+      asset: {
+        id: sell ? pool.y.asset.id : pool.x.asset.id,
+        decimals: sell ? pool.y.asset.decimals : pool.x.asset.decimals,
+      },
+      amount: pool.outputAmount(
+        max_to as any,
+        slippage || config.network.defaultSlippage,
+      ).amount,
+    };
+    if (from.amount === BigInt(0))
+      throw new Error(`${amount} asset from ${max_to.asset.id} is not enough!`);
+    const to = {
+      asset: {
+        id: sell ? pool.x.asset.id : pool.y.asset.id,
+        decimals: sell ? pool.x.asset.decimals : pool.y.asset.decimals,
+      },
+      amount: BigInt(amount.toString()),
+    };
+
+    const { minOutput } = getBaseInputParameters(pool, {
+      inputAmount: from,
+      slippage: slippage || config.network.defaultSlippage,
+    });
+
+    return { sell, amount, from, to, minOutput };
+  }
+
+  /**
+   * Calculates the amount with proper decimals
+   * @param {Pool} pool - The pool to use for the calculation
+   * @param {BigNumber} value - The input value
+   * @param {boolean} sell - Whether it's a sell operation
+   * @returns {BigNumber}
+   */
+  private calculateAmount(
+    pool: Pool,
+    value: BigNumber,
+    sell: boolean,
+  ): BigNumber {
+    const decimals = sell ? pool.x.asset.decimals : pool.y.asset.decimals;
+    return value.multipliedBy(BigNumber(10).pow(decimals as number));
+  }
+
+  /**
+   * Calculates the expected amount from the minimum output
+   * @param {any} minOutput - The minimum output
+   * @param {Pool} pool - The pool used for the swap
+   * @param {boolean} sell - Whether it's a sell operation
+   * @returns {BigNumber}
+   */
+  private calculateExpectedAmount(
+    minOutput: any,
+    pool: Pool,
+    sell: boolean,
+  ): BigNumber {
+    const decimals = sell ? pool.x.asset.decimals : pool.y.asset.decimals;
+    return BigNumber(minOutput.amount.toString()).div(
+      BigNumber(10).pow(decimals as number),
+    );
+  }
+
+  /**
+   * Gets pool actions for the swap
+   * @param {string} output_address - The output address
+   * @param {CardanoAccount} account - The account performing the swap
+   * @param {DefaultTxAssembler} txAssembler - The transaction assembler
+   * @returns {Function}
+   */
+  private getPoolActions(
+    output_address: string,
+    account: CardanoAccount,
+    txAssembler: DefaultTxAssembler,
+  ) {
+    return makeWrappedNativePoolActionsSelector(
+      output_address,
+      account.prover,
+      txAssembler,
+    );
+  }
+
+  /**
+   * Calculates swap variables
+   * @param {any} config - The Cardano configuration
+   * @param {any} minOutput - The minimum output
+   * @returns {[number, SwapExtremums]}
+   */
+  private calculateSwapVariables(
+    config: any,
+    minOutput: any,
+  ): [number, SwapExtremums] {
+    const swapVariables = swapVars(
+      BigInt(config.network.defaultMinerFee.multipliedBy(3).toString()),
+      config.network.minNitro,
+      minOutput,
+    );
+    if (!swapVariables) throw new Error('Error in swap vars!');
+    return swapVariables;
+  }
+
+  /**
+   * Prepares inputs for the swap
+   * @param {any[]} utxos - The unspent transaction outputs
+   * @param {any} from - The from asset
+   * @param {BigInt} baseInputAmount - The base input amount
+   * @param {any} config - The Cardano configuration
+   * @param {SwapExtremums} extremum - The swap extremums
+   * @returns {any[]}
+   */
+  private prepareInputs(
+    utxos: any[],
+    from: any,
+    baseInputAmount: BigNumber,
+    config: any,
+    extremum: SwapExtremums,
+  ): BoxSelection {
+    return getInputs(
+      utxos.map((utxo) => ({
+        ...utxo,
+        value: BigNumber(utxo.value),
+        assets: utxo.assets.map((asset: any) => ({
+          ...asset,
+          amount: BigNumber(asset.amount),
+        })),
+      })),
+      [new AssetAmount(from.asset, BigInt(baseInputAmount.toString()))],
+      {
+        minerFee: BigInt(config.network.defaultMinerFee.toString()),
+        uiFee: BigInt(config.network.defaultMinerFee.toString()),
+        exFee: BigInt(extremum.maxExFee.toString()),
+      },
+    );
+  }
+
+  /**
+   * Creates swap parameters
+   * @param {Pool} pool - The pool to use for the swap
+   * @param {string} output_address - The output address
+   * @param {any} baseInput - The base input
+   * @param {any} to - The to asset
+   * @param {[number, SwapExtremums]} swapVariables - The swap variables
+   * @param {any} config - The Cardano configuration
+   * @returns {SwapParams<NativeExFeeType>}
+   */
+  private createSwapParams(
+    pool: Pool,
+    output_address: string,
+    baseInput: any,
+    to: any,
+    swapVariables: [number, SwapExtremums],
+    config: any,
+  ): SwapParams<NativeExFeeType> {
+    const [exFeePerToken, extremum] = swapVariables;
+    const pk = publicKeyFromAddress(output_address);
+    if (!pk) throw new Error(`output_address is not defined.`);
+
+    return {
+      poolId: pool.id,
+      pk,
+      baseInput,
+      minQuoteOutput: extremum.minOutput.amount,
+      exFeePerToken,
+      uiFee: BigInt(config.network.defaultMinerFee.toString()),
+      quoteAsset: to.asset.id,
+      poolFeeNum: pool.poolFeeNum,
+      maxExFee: extremum.maxExFee,
+    };
+  }
+
+  /**
+   * Creates transaction context
+   * @param {any[]} inputs - The transaction inputs
+   * @param {NetworkContext} networkContext - The network context
+   * @param {string} return_address - The return address
+   * @param {any} config - The Cardano configuration
+   * @returns {TransactionContext}
+   */
+  private createTxContext(
+    inputs: BoxSelection,
+    networkContext: NetworkContext,
+    return_address: string,
+    config: any,
+  ): TransactionContext {
+    return getTxContext(
+      inputs,
+      networkContext,
+      return_address,
+      BigInt(config.network.defaultMinerFee.toString()),
+    );
+  }
+
+  /**
+   * Gets the block timestamp
+   * @param {NetworkContext} networkContext - The network context
+   * @returns {Promise<number>}
+   */
+  private async getBlockTimestamp(
+    networkContext: NetworkContext,
+  ): Promise<number> {
+    const blockInfo = await this._node.getBlockInfo(
+      networkContext.height.toString(),
+    );
+    return blockInfo.header.timestamp;
+  }
+
+  /**
+   * Submits a transaction
+   * @param {CardanoAccount} account - The account submitting the transaction
+   * @param {any} tx - The transaction to submit
+   */
+  private async submitTransaction(
+    account: CardanoAccount,
+    tx: any,
+  ): Promise<void> {
+    const submit_tx = await account.prover.submit(tx);
+    if (!submit_tx.id) throw new Error(`Error during submit tx!`);
+  }
+
+  /**
+   * Creates a trade response
+   * @param {CardanoAsset} realBaseToken - The base token
+   * @param {CardanoAsset} realQuoteToken - The quote token
+   * @param {BigNumber} amount - The amount
+   * @param {any} from - The from asset
+   * @param {any} minOutput - The minimum output
+   * @param {Pool} pool - The pool used for the swap
+   * @param {boolean} sell - Whether it's a sell operation
+   * @param {any} config - The Cardano configuration
+   * @param {number} timestamp - The transaction timestamp
+   * @param {any} tx - The transaction
+   * @returns {TradeResponse}
+   */
+  private createTradeResponse(
+    realBaseToken: CardanoAsset,
+    realQuoteToken: CardanoAsset,
+    amount: BigNumber,
+    from: any,
+    minOutput: any,
+    pool: Pool,
+    sell: boolean,
+    config: any,
+    timestamp: number,
+    tx: any,
+  ): TradeResponse {
+    const xDecimals = pool.x.asset.decimals as number;
+    const yDecimals = pool.y.asset.decimals as number;
+
+    return {
+      network: this.network,
+      timestamp,
+      latency: 0,
+      base: realBaseToken.symbol,
+      quote: realQuoteToken.symbol,
+      amount: this.formatAmount(amount, sell ? xDecimals : yDecimals),
+      rawAmount: this.formatAmount(amount, sell ? xDecimals : yDecimals),
+      expectedOut: this.formatAmount(
+        BigNumber(minOutput.amount.toString()),
+        sell ? xDecimals : yDecimals,
+      ),
+      price: this.calculatePrice(minOutput, from, sell, xDecimals, yDecimals),
+      gasPrice: this.calculateGas(config.network.minTxFee),
+      gasPriceToken: 'ERG',
+      gasLimit: this.calculateGas(config.network.minTxFee),
+      gasCost: this.calculateGas(config.network.minTxFee).toString(),
+      txHash: tx.id,
+    };
+  }
+
+  /**
+   * Creates a price response
+   * @param {CardanoAsset} realBaseToken - The base token
+   * @param {CardanoAsset} realQuoteToken - The quote token
+   * @param {BigNumber} amount - The amount
+   * @param {any} from - The from asset
+   * @param {any} minOutput - The minimum output
+   * @param {Pool} pool - The pool used for the swap
+   * @param {boolean} sell - Whether it's a sell operation
+   * @param {any} config - The Cardano configuration
+   * @param {BigNumber} expectedAmount - The expected amount
+   * @returns {PriceResponse}
+   */
+  private createPriceResponse(
+    realBaseToken: CardanoAsset,
+    realQuoteToken: CardanoAsset,
+    amount: BigNumber,
+    from: any,
+    minOutput: any,
+    pool: Pool,
+    sell: boolean,
+    config: any,
+    expectedAmount: BigNumber,
+  ): PriceResponse {
+    const xDecimals = pool.x.asset.decimals as number;
+    const yDecimals = pool.y.asset.decimals as number;
+
+    return {
+      base: realBaseToken.symbol,
+      quote: realQuoteToken.symbol,
+      amount: this.formatAmount(amount, sell ? xDecimals : yDecimals),
+      rawAmount: this.formatAmount(amount, sell ? xDecimals : yDecimals),
+      expectedAmount: expectedAmount.toString(),
+      price: this.calculatePrice(minOutput, from, sell, xDecimals, yDecimals),
+      network: this.network,
+      timestamp: Date.now(),
+      latency: 0,
+      gasPrice: this.calculateGas(config.network.minTxFee),
+      gasPriceToken: 'ERG',
+      gasLimit: this.calculateGas(config.network.minTxFee),
+      gasCost: this.calculateGas(config.network.minTxFee).toString(),
+    };
+  }
+
+  /**
+   * Formats an amount with proper decimals
+   * @param {BigNumber} amount - The amount to format
+   * @param {number} decimals - The number of decimals
+   * @returns {string}
+   */
+  private formatAmount(amount: BigNumber, decimals: number): string {
+    return amount.div(BigNumber(10).pow(decimals)).toString();
+  }
+
+  /**
+   * Calculates the price
+   * @param {any} minOutput - The minimum output
+   * @param {any} from - The from asset
+   * @param {boolean} sell - Whether it's a sell operation
+   * @param {number} xDecimals - The decimals of the x asset
+   * @param {number} yDecimals - The decimals of the y asset
+   * @returns {string}
+   */
+  private calculatePrice(
+    minOutput: any,
+    from: any,
+    sell: boolean,
+    xDecimals: number,
+    yDecimals: number,
+  ): string {
+    if (sell) {
+      return BigNumber(1)
+        .div(
+          BigNumber(minOutput.amount.toString())
+            .div(BigNumber(10).pow(xDecimals))
+            .div(
+              BigNumber(from.amount.toString()).div(
+                BigNumber(10).pow(yDecimals),
+              ),
+            ),
+        )
+        .toString();
+    } else {
+      return BigNumber(minOutput.amount.toString())
+        .div(BigNumber(10).pow(yDecimals))
+        .div(
+          BigNumber(from.amount.toString()).div(BigNumber(10).pow(xDecimals)),
+        )
+        .toString();
+    }
+  }
+
+  /**
+   * Calculates gas-related values
+   * @param {number} minTxFee - The minimum transaction fee
+   * @returns {number}
+   */
+  private calculateGas(minTxFee: number): number {
+    return BigNumber(minTxFee).div(BigNumber(10).pow(9)).toNumber();
+  }
+
+  /**
+   * Gets a pool by its ID
+   * @param {string} id - The pool ID
+   * @returns {Pool} The pool
+   */
+  public getPool(id: string): Pool {
+    return <Pool>this.ammPools.find((ammPool) => ammPool.id === id);
+  }
+
+  /**
+   * Gets pools by token pair
+   * @param {string} baseToken - The base token symbol
+   * @param {string} quoteToken - The quote token symbol
+   * @returns {Pool[]} The pools matching the token pair
+   */
+  public getPoolByToken(baseToken: string, quoteToken: string): Pool[] {
+    const realBaseToken = this.storedAssetList.find(
+      (asset) => asset.symbol === baseToken,
+    );
+    const realQuoteToken = this.storedAssetList.find(
+      (asset) => asset.symbol === quoteToken,
+    );
+    if (!realBaseToken || !realQuoteToken)
+      throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
+    return <Pool[]>(
+      this.ammPools.filter(
+        (ammPool) =>
+          (ammPool.x.asset.id === realBaseToken.tokenId &&
+            ammPool.y.asset.id === realQuoteToken.tokenId) ||
+          (ammPool.x.asset.id === realQuoteToken.tokenId &&
+            ammPool.y.asset.id === realBaseToken.tokenId),
+      )
+    );
+  }
+
+  /**
+   * Gets a transaction by its hash
+   * @param {string} txHash - The transaction hash
+   * @returns {Promise<TransactionInfo | undefined>} The transaction details
+   */
+  public async getTx(txHash: string): Promise<TransactionInfo | undefined> {
+    return (await this._node.transactions.txInfo(txHash)).data;
+  }
+
+  /**
+   * Gets a transactions of a address
+   * @param {string} address - The address included with the transactions
+   * @returns {Promise<AddressTransaction[] | undefined>} The transaction details
+   */
+  public async getAddressTxs(
+    address: string,
+    limit?: number,
+    sortDirection?: string,
+    offset?: string,
+  ): Promise<AddressTransaction[] | undefined> {
+    return (
+      await this._node.addresses.txsByAddress(address, {
+        count: limit || 100,
+        cursor: offset || '0',
+        order: (sortDirection as TxsByAddressOrderEnum) || 'desc',
+      })
+    ).data;
+  }
+
+  /**
+   * Gets the stats of a transaction
+   * @param {string} txHash - The transaction hash
+   * @returns {Promise<TxManagerState | undefined>} The transaction details
+   */
+  public async getTxState(
+    txHash: string,
+  ): Promise<TxManagerState | undefined> {
+    return (
+      await this._node.txManager.txManagerState(txHash))
+  }
+
 }
