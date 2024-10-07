@@ -16,6 +16,7 @@ import {
   MaestroSupportedNetworks,
   Utxo,
 } from '@maestro-org/typescript-sdk';
+import fse from 'fs-extra';
 import { hexToString, Splash, stringToHex } from '@splashprotocol/sdk';
 import { sha256 } from '@ethersproject/solidity';
 import { getCardanoConfig } from './cardano.config';
@@ -29,6 +30,9 @@ import { SplashPool } from './types/cardano.types';
 import { SplashClientType } from './types/node.types';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { BigNumber } from 'bignumber.js';
+import { CardanoWallet } from './wallet.service';
+import { walletPath } from '../../services/base';
+import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -275,24 +279,12 @@ export class Cardano {
    * @param {string} mnemonic - The mnemonic phrase
    * @returns {CardanoAccount}
    */
-  public getAccountFromMnemonic(mnemonic: string): CardanoAccount {
-    const sks = new SecretKeys();
-    const seed = Mnemonic.to_seed(mnemonic, '');
-    const rootSecret = ExtSecretKey.derive_master(seed);
-    const changePath = DerivationPath.new(0, new Uint32Array([0]));
-    const secretKeyBytes = rootSecret.derive(changePath).secret_key_bytes();
-    const secretKey = SecretKey.dlog_from_bytes(secretKeyBytes);
-    const address = secretKey.get_address().to_base58(this._networkPrefix);
+  public getAccountFromMnemonic(mnemonic: string): CardanoWallet {
+    let wallet = new CardanoWallet(mnemonic);
 
-    sks.add(secretKey);
+    wallet.initialize();
 
-    const wallet = Wallet.from_secrets(sks);
-
-    return {
-      address,
-      wallet,
-      prover: new WalletProver(wallet, this._node),
-    };
+    return wallet;
   }
 
   /**
@@ -318,7 +310,7 @@ export class Cardano {
    * @param {string} address - The address to get the account for
    * @returns {Promise<CardanoAccount>}
    */
-  public async getAccountFromAddress(address: string): Promise<CardanoAccount> {
+  public async getAccountFromAddress(address: string): Promise<CardanoWallet> {
     const path = `${walletPath}/${this._chain}`;
     const encryptedMnemonic: string = await fse.readFile(
       `${path}/${address}.json`,

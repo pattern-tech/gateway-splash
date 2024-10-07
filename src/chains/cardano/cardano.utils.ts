@@ -5,10 +5,7 @@ import {
 } from '@maestro-org/typescript-sdk';
 import {
   Currency,
-  Dictionary,
   Network,
-  Operation,
-  Pool,
   Splash,
   SplashApi,
   SplashRemoteCollaterals,
