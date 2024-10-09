@@ -23,7 +23,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "typeRoots": ["node_modules/@types", "src/@types"],
+    "typeRoots": ["node_modules/@types", "src/@types, node_modules/@dcspark/cardano-multiplatform-lib-browser"],
     "downlevelIteration": true
   },
   "exclude": ["node_modules"],
@@ -31,6 +31,6 @@
     "src/**/*.ts",
     "src/**/*.js",
     "test/**/*.ts",
-    "integration-test/**/*.ts"
+    "integration-test/**/*.ts", 
   ]
 }

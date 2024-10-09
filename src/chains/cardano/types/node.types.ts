@@ -12,8 +12,9 @@ export type SplashToken = {
   description: string;
 };
 
-// export type MaestroError = {
-//   code: number;
-//   error: string;
-//   message: string;
-// };
+export type TradeSlippage = '1' | '5' | '10' | '15' | '25';
+
+export type poolNftNames = {
+  baseToQuote: string;
+  quoteToBase: string;
+};

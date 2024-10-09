@@ -2,6 +2,7 @@ import {
   MaestroClient,
   Configuration as MaestroConfig,
   MaestroSupportedNetworks,
+  TokenRegistryMetadata,
 } from '@maestro-org/typescript-sdk';
 import {
   Currency,
@@ -13,7 +14,7 @@ import {
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
-import { SplashClientType } from './types/node.types';
+import { poolNftNames, SplashClientType } from './types/node.types';
 
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
@@ -44,11 +45,13 @@ export async function getAssetsFromPools(
 
   // adding ada token as the first token
   let ada = Currency.ada(BigInt(0));
-  tokens['Ada'] = {
-    token: ada, // must be zero
-    policyId: ada.asset.policyId, // must be zero
-    decimals: ada.asset.decimals, // must be zero
-    name: ada.asset.name, // must be zero
+  ada.asset.nameBase16 = '414441';
+  tokens['ADA'] = {
+    token: ada,
+    policyId: '',
+    decimals: 6,
+    name: 'ADA',
+    symbol: 'ADA',
   };
 
   /**
@@ -76,33 +79,37 @@ export async function getAssetsFromPools(
           pool.x.asset.name != '' ||
           !String(pool.nft.nameBase16).includes('414441')
         ) {
+          let metadata = await getTokenMetadata(
+            pool.x.asset.policyId,
+            pool.x.asset.name, // will be converted to hex, not case sensitive
+            maestroClient,
+          );
           tokens[stringToHex(pool.x.asset.name)] = {
             token: pool.x,
             policyId: pool.x.asset.policyId,
-            decimals: await getTokenDecimals(
-              pool.x.asset.policyId,
-              pool.x.asset.name,
-              maestroClient,
-            ),
-            name: pool.x.asset.name,
-            splashSupport: true
+            decimals: metadata?.decimals ?? 6,
+            symbol: metadata?.ticker ?? pool.x.asset.name.toUpperCase(),
+            name: pool.x.asset.name.toUpperCase(),
 
+            splashSupport: true,
           };
         }
         if (
           pool.y.asset.name != '' ||
           !String(pool.nft.nameBase16).includes('414441')
         ) {
+          let metadata = await getTokenMetadata(
+            pool.y.asset.policyId,
+            pool.y.asset.name, // will be converted to hex, not case sensitive
+            maestroClient,
+          );
           tokens[stringToHex(pool.y.asset.name)] = {
             token: pool.y,
             policyId: pool.y.asset.policyId,
-            decimals: await getTokenDecimals(
-              pool.y.asset.policyId,
-              pool.y.asset.name,
-              maestroClient,
-            ),
-            name: pool.y.asset.name,
-            splashSupport: true
+            decimals: metadata?.decimals ?? 6,
+            symbol: metadata?.ticker ?? pool.y.asset.name.toUpperCase(),
+            name: pool.y.asset.name.toUpperCase(),
+            splashSupport: true,
           };
         }
       }
@@ -112,15 +119,23 @@ export async function getAssetsFromPools(
   return tokens;
 }
 
-async function getTokenDecimals(
+export function getNftBase16Names(
+  baseName16: string,
+  quoteName16: string,
+): poolNftNames {
+  return {
+    baseToQuote: baseName16 + '5f' + quoteName16 + '4e4654',
+    quoteToBase: quoteName16 + '5f' + baseName16 + '4e4654',
+  };
+}
+async function getTokenMetadata(
   policyId: string,
   name: string,
   maestroClient: MaestroClient,
-): Promise<number> {
+): Promise<TokenRegistryMetadata | null | undefined> {
   return (
-    (await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`))
-      .data.token_registry_metadata?.decimals || 6
-  );
+    await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
+  ).data.token_registry_metadata;
 }
 
 export async function getSplashPools(
