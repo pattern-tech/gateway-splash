@@ -1,38 +1,29 @@
-// import { Ergo } from './ergo';
-
 import {
-  ErgoUnsignedTransaction,
-  OutputBuilder,
-  TransactionBuilder,
-} from '@fleet-sdk/core';
-
-import {
-  AssetsResponse,
-  BalanceRequest,
+  BalancesRequest,
   PollRequest,
   PollResponse,
   PoolRequest,
-  PoolResponse,
-  TransferRequest,
-} from './interfaces/requests.interface';
+  PoolResponse, TokenResponse,
+} from './interfaces/cardano.interface';
 import { BalanceResponse, TokensRequest } from '../../network/network.requests';
-import { ErgoBoxAsset } from './interfaces/ergo.interface';
 import { AllowancesRequest, AllowancesResponse } from '../chain.requests';
+import {Cardano} from "./cardano";
+// import {cancel} from "../chain.controller";
 
 export class CardanoController {
-  static async pool(ergo: Ergo, req: PoolRequest): Promise<PoolResponse> {
-    if (!ergo.ready()) {
-      await ergo.init();
+  static async pool(cardano: Cardano, req: PoolRequest): Promise<PoolResponse> {
+    if (!cardano.ready()) {
+      await cardano.init();
     }
 
-    return ergo.getPool(req.poolId).info;
+    return cardano.getPool(req.poolId);
   }
 
-  static async poll(ergo: Ergo, req: PollRequest): Promise<PollResponse> {
-    if (!ergo.ready()) {
-      await ergo.init();
+  static async poll(cardano: Cardano, req: PollRequest): Promise<PollResponse> {
+    if (!cardano.ready()) {
+      await cardano.init();
     }
-    const tx = await ergo.getTx(req.txHash);
+    const tx = await cardano.getTx(req.txHash);
     if (!tx)
       return {
         id: '',
@@ -55,108 +46,56 @@ export class CardanoController {
   }
 
   static async balances(
-    chain: Ergo,
-    request: BalanceRequest,
+    chain: Cardano,
+    request: BalancesRequest,
   ): Promise<BalanceResponse> {
     if (!chain.ready()) {
       await chain.init();
     }
-    const utxos = await chain.getAddressUnspentBoxes(request.address);
+    const utxos = await chain.getAddressUtxos(request.address);
+
     const { balance, assets } = chain.getBalance(utxos);
-    const new_assets: Record<string, string> = {};
-    Object.keys(assets).forEach((value) => {
-      const temp = chain.storedAssetList.find(
-        (asset) => asset.tokenId === value,
-      );
-      if (temp) {
-        new_assets[temp.symbol] = assets[value]
-          .div(Math.pow(10, temp.decimals))
-          .toString();
-      }
-    });
     return {
       network: chain.network,
       timestamp: Date.now(),
       latency: 0,
-      balances: { ERG: balance.div(Math.pow(10, 9)).toString(), ...new_assets },
+      balances: { LOVELACE: balance.div(Math.pow(10, 9)).toString(), ...assets },
     };
   }
 
   static async getTokens(
-    ergo: Ergo,
+    cardano: Cardano,
     _req: TokensRequest,
-  ): Promise<AssetsResponse> {
-    if (!ergo.ready()) {
-      await ergo.init();
+  ): Promise<TokenResponse> {
+    if (!cardano.ready()) {
+      await cardano.init();
     }
 
     return {
-      assets: ergo.storedAssetList,
+      assets: cardano.storedAssetList,
     };
   }
 
-  static async transfer(
-    ergo: Ergo,
-    req: TransferRequest,
-  ): Promise<ErgoUnsignedTransaction> {
-    const networkHeight = await ergo.getNetworkHeight();
-    const utxos = await ergo.getAddressUnspentBoxes(req.fromAddress);
-
-    return new TransactionBuilder(networkHeight)
-      .from(
-        utxos.map((utxo) => {
-          const temp = Object(utxo);
-          temp.value = temp.value.toString();
-          temp.assets = temp.assets.map((asset: ErgoBoxAsset) => {
-            const temp2 = Object(asset);
-            temp2.amount = temp2.amount.toString();
-            return temp2;
-          });
-          return temp;
-        }),
-      )
-      .to(
-        new OutputBuilder(req.toValue, req.toAddress).addTokens(
-          req.assets.map((asset) => {
-            const temp = Object(asset);
-            temp.amount = temp.amount.toString();
-            return temp;
-          }),
-        ),
-      )
-      .sendChangeTo(req.fromAddress)
-      .payMinFee()
-      .build();
-  }
 
   static async allowances(
-    chain: Ergo,
+    cardano: Cardano,
     request: AllowancesRequest,
   ): Promise<AllowancesResponse | string> {
-    if (!chain.ready()) {
-      await chain.init();
+    if (!cardano.ready()) {
+      await cardano.init();
     }
-    const utxos = await chain.getAddressUnspentBoxes(request.address);
-    const { balance, assets } = chain.getBalance(utxos);
-    const new_assets: Record<string, string> = {};
-    Object.keys(assets).forEach((value) => {
-      const temp = chain.storedAssetList.find(
-        (asset) => asset.tokenId === value,
-      );
-      if (temp) {
-        new_assets[temp.symbol] = assets[value]
-          .div(Math.pow(10, temp.decimals))
-          .toString();
-      }
-    });
+    const utxos = await cardano.getAddressUtxos(request.address);
+
+    const { balance, assets } = cardano.getBalance(utxos);
+
     return {
-      network: chain.network,
+      network: cardano.network,
       timestamp: Date.now(),
       latency: 0,
       spender: request.spender,
       approvals: {
-        ERG: balance.div(Math.pow(10, 9)).toString(),
-        ...new_assets,
+        LOVELACE: balance.div(Math.pow(10, 9)).toString(),
+        ...assets,
       },
     };
   }

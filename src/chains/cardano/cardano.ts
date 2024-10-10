@@ -36,7 +36,7 @@ import { BigNumber } from 'bignumber.js';
 
 export class Cardano {
   private static _instances: LRUCache<string, Cardano>;
-  private _assetMap: Record<string, CardanoToken> = {};
+  public _assetMap: Record<string, CardanoToken> = {};
   private _chain: string = 'cardano';
   private _network: MaestroSupportedNetworks;
   //   private _networkPrefix: NetworkPrefix;
@@ -85,15 +85,26 @@ export class Cardano {
   }
 
   /**
+   * Initializes the Ergo instance
+   * @returns {Promise<void>}
+   */
+  public async init(): Promise<void> {
+    await this.loadAssets();
+    await this.loadPools();
+    this._ready = true;
+    return;
+  }
+
+  /**
    * Gets or creates an Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
    * @returns {Cardano}
    * @static
    */
-  public async getInstance(
+  public static getInstance(
     network: MaestroSupportedNetworks,
     name?: string,
-  ): Promise<Cardano> {
+  ): Cardano {
     const instanceName =
       name ||
       sha256(
@@ -127,24 +138,8 @@ export class Cardano {
         new Cardano(network, config, 1, {}, {}),
       );
     }
-    let instance = Cardano._instances.get(instanceName) as Cardano;
 
-    let protocolParams = (await instance._node.general.protocolParameters())
-      .data;
-
-    instance.minFee =
-      protocolParams.min_fee_coefficient +
-      protocolParams.min_fee_constant.ada.lovelace * 1;
-
-    // we load pools then we fetch the tokens from it
-    await instance.loadPools();
-
-    // fetching tokens from it
-    await instance.loadAssets();
-
-    this._ready = true;
-
-    return instance;
+    return Cardano._instances.get(instanceName) as Cardano;
   }
 
   /**
@@ -175,7 +170,18 @@ export class Cardano {
    * Checks if the Cardano instance is ready
    * @returns {boolean}
    */
-  public ready(): boolean {
+  public async ready(): Promise<boolean> {
+    const protocolParams = (await this._node.general.protocolParameters())
+      .data;
+
+    this.minFee =
+      protocolParams.min_fee_coefficient +
+      protocolParams.min_fee_constant.ada.lovelace;
+    // we load pools then we fetch the tokens from it
+    await this.loadPools();
+
+    // fetching tokens from it
+    await this.loadAssets();
     return this._ready;
   }
 
@@ -441,5 +447,18 @@ export class Cardano {
    */
   private async loadPools(): Promise<void> {
     this._splashPools = await getSplashPools(this._dex);
+  }
+
+  public async getPool(poolId: string): Promise<any> {
+    return
+  }
+
+  /**
+   * Gets a transaction by its ID
+   * @param {string} id - The transaction ID
+   * @returns {Promise<any>} The transaction details
+   */
+  public async getTx(id: string): Promise<any> {
+    return
   }
 }
