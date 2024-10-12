@@ -720,7 +720,7 @@ export class Cardano {
 
     return {
       network: this._network,
-      timestamp: await this.getBlockTimestamp(this._network),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       base: realBaseToken.symbol,
       quote: realQuoteToken.symbol,
@@ -796,7 +796,7 @@ export class Cardano {
       ),
       price,
       network: this.network,
-      timestamp: await this.getBlockTimestamp('Mainnet'),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
