@@ -440,7 +440,7 @@ export class Cardano {
    * @returns {Promise<TradeResponse>} The trade response
    */
   public async swap(
-    cardanoWallet: CardanoWallet,
+    wallet: CardanoWallet,
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
@@ -546,11 +546,10 @@ export class Cardano {
       protocolParams.min_fee_constant.ada.lovelace *
         cborHexToBytes(swapTx.cbor).length;
 
-    let swapTxSigned = cardanoWallet.sing(Buffer.from(swapTx.cbor, 'hex'));
-
-    let txHash = await this._node.txManager.txManagerSubmit(swapTxSigned);
-
-    // await this.submitTransaction(account, tx);
+    let txHash = this.signAndSubmitTransaction(
+      wallet,
+      Buffer.from(cborHexToBytes(swapTx.cbor)),
+    );
 
     let minOutput = amount.multipliedBy(price.raw);
 
@@ -593,7 +592,7 @@ export class Cardano {
       throw new Error('unsupported token ?');
     }
 
-    const config = getCardanoConfig(this.network);
+    // const config = getCardanoConfig(this.network);
 
     let sell: boolean;
 
@@ -679,13 +678,15 @@ export class Cardano {
     tx: Buffer,
   ): Promise<string> {
     try {
-      let signedtx = wallet.sing(tx);
+      let signedtx = wallet.sing(tx); //separate
 
-      let txHash = this._node.txManager.txManagerSubmit(signedtx);
+      let txHash = await this._node.txManager.txManagerSubmit(signedtx);
 
       return txHash;
     } catch (err) {
-      throw new Error (`Error while signing and submitting the transaction: \n ${err}`)
+      throw new Error(
+        `Error while signing and submitting the transaction: \n ${err}`,
+      );
     }
   }
 
