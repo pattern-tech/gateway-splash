@@ -889,7 +889,7 @@ public getPoolByToken(x: string, y: string): SplashPool[] {
  * @param {string} y - The quote token name cbor hex encoded
    * @returns {SplashPool[]} The pools matching the token pair
    */
-  public async fetchLatestPoolByToken(x: string, y: string): SplashPool[] {
+  public async fetchLatestPoolByToken(x: string, y: string): Promise<SplashPool[]> {
     this._splashPools = await getSplashPools(this._dex);
     return this.getPoolByToken(x, y)
   } 
