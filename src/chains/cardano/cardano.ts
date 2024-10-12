@@ -641,62 +641,6 @@ export class Cardano {
     );
   }
 
-  // /**
-  //  * Finds the best pool for a given token pair and amount
-  //  * @param {string} baseToken - The base token symbol
-  //  * @param {string} quoteToken - The quote token symbol
-  //  * @param {BigNumber} value - The amount to swap
-  //  * @param {number} [slippage] - The slippage tolerance
-  //  * @returns {Promise<{ realBaseToken: CardanoAsset, realQuoteToken: CardanoAsset, pool: Pool }>}
-  //  */
-  // private async findBestPool(
-  //   baseToken: string,
-  //   quoteToken: string,
-  //   value: BigNumber,
-  //   slippage?: number,
-  // ): Promise<{
-  //   realBaseToken: CardanoAsset;
-  //   realQuoteToken: CardanoAsset;
-  //   pool: Pool;
-  // }> {
-  //   const pools = this.getPoolByToken(baseToken, quoteToken);
-  //   if (!pools.length)
-  //     throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
-
-  //   const realBaseToken = this.findToken(baseToken);
-  //   const realQuoteToken = this.findToken(quoteToken);
-  //   if (!realBaseToken || !realQuoteToken)
-  //     throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
-  //   let bestPool: Pool | null = null;
-  //   let bestExpectedOut = BigNumber(0);
-
-  //   for (const pool of pools) {
-  //     const { minOutput } = this.calculateSwapParameters(
-  //       pool,
-  //       realBaseToken,
-  //       value,
-  //       slippage,
-  //     );
-  //     const expectedOut = this.calculateExpectedAmount(
-  //       minOutput,
-  //       pool,
-  //       pool.x.asset.id !== realBaseToken.tokenId,
-  //     );
-
-  //     if (expectedOut.gt(bestExpectedOut)) {
-  //       bestPool = pool;
-  //       bestExpectedOut = expectedOut;
-  //     }
-  //   }
-
-  //   if (!bestPool)
-  //     throw new Error(
-  //       `No suitable pool found for ${baseToken} and ${quoteToken}`,
-  //     );
-
-  //   return { realBaseToken, realQuoteToken, pool: bestPool };
-  // }
-
   /**
    * Finds a token by its symbol
    * @param {string} symbol - The token symbol
@@ -710,220 +654,6 @@ export class Cardano {
     );
     return token;
   }
-
-  // /**
-  //  * Calculates swap parameters for a given pool and amount
-  //  * @param {Pool} pool - The pool to use for the swap
-  //  * @param {CardanoAsset} baseToken - The base token
-  //  * @param {BigNumber} value - The amount to swap
-  //  * @param {number} [slippage] - The slippage tolerance
-  //  * @returns {{ sell: boolean, amount: BigNumber, from: any, to: any, minOutput: any }}
-  //  */
-  // private calculateSwapParameters(
-  //   pool: Pool,
-  //   baseToken: CardanoAsset,
-  //   value: BigNumber,
-  //   slippage?: number,
-  // ) {
-  //   const config = getCardanoConfig(this.network);
-  //   const sell = pool.x.asset.id !== baseToken.tokenId;
-  //   const amount = this.calculateAmount(pool, value, sell);
-
-  //   const max_to = {
-  //     asset: { id: sell ? pool.x.asset.id : pool.y.asset.id },
-  //     amount: BigInt(amount.toString()),
-  //   };
-
-  //   const from = {
-  //     asset: {
-  //       id: sell ? pool.y.asset.id : pool.x.asset.id,
-  //       decimals: sell ? pool.y.asset.decimals : pool.x.asset.decimals,
-  //     },
-  //     amount: pool.outputAmount(
-  //       max_to as any,
-  //       slippage || config.network.defaultSlippage,
-  //     ).amount,
-  //   };
-  //   if (from.amount === BigInt(0))
-  //     throw new Error(`${amount} asset from ${max_to.asset.id} is not enough!`);
-  //   const to = {
-  //     asset: {
-  //       id: sell ? pool.x.asset.id : pool.y.asset.id,
-  //       decimals: sell ? pool.x.asset.decimals : pool.y.asset.decimals,
-  //     },
-  //     amount: BigInt(amount.toString()),
-  //   };
-
-  //   const { minOutput } = getBaseInputParameters(pool, {
-  //     inputAmount: from,
-  //     slippage: slippage || config.network.defaultSlippage,
-  //   });
-
-  //   return { sell, amount, from, to, minOutput };
-  // }
-
-  // /**
-  //  * Calculates the amount with proper decimals
-  //  * @param {Pool} pool - The pool to use for the calculation
-  //  * @param {BigNumber} value - The input value
-  //  * @param {boolean} sell - Whether it's a sell operation
-  //  * @returns {BigNumber}
-  //  */
-  // private calculateAmount(
-  //   pool: Pool,
-  //   value: BigNumber,
-  //   sell: boolean,
-  // ): BigNumber {
-  //   const decimals = sell ? pool.x.asset.decimals : pool.y.asset.decimals;
-  //   return value.multipliedBy(BigNumber(10).pow(decimals as number));
-  // }
-
-  // /**
-  //  * Calculates the expected amount from the minimum output
-  //  * @param {any} minOutput - The minimum output
-  //  * @param {Pool} pool - The pool used for the swap
-  //  * @param {boolean} sell - Whether it's a sell operation
-  //  * @returns {BigNumber}
-  //  */
-  // private calculateExpectedAmount(
-  //   minOutput: any,
-  //   pool: Pool,
-  //   sell: boolean,
-  // ): BigNumber {
-  //   const decimals = sell ? pool.x.asset.decimals : pool.y.asset.decimals;
-  //   return BigNumber(minOutput.amount.toString()).div(
-  //     BigNumber(10).pow(decimals as number),
-  //   );
-  // }
-
-  // /** // pool action is properly specified in the splash dex
-  //  * Gets pool actions for the swap
-  //  * @param {string} output_address - The output address
-  //  * @param {CardanoAccount} account - The account performing the swap
-  //  * @param {DefaultTxAssembler} txAssembler - The transaction assembler
-  //  * @returns {Function}
-  //  */
-  // private getPoolActions(
-  //   output_address: string,
-  //   account: CardanoAccount,
-  //   txAssembler: DefaultTxAssembler,
-  // ) {
-  //   return makeWrappedNativePoolActionsSelector(
-  //     output_address,
-  //     account.prover,
-  //     txAssembler,
-  //   );
-  // }
-
-  // /**
-  //  * Calculates swap variables
-  //  * @param {any} config - The Cardano configuration
-  //  * @param {any} minOutput - The minimum output
-  //  * @returns {[number, SwapExtremums]}
-  //  */
-  // private calculateSwapVariables(
-  //   config: any,
-  //   minOutput: any,
-  // ): [number, SwapExtremums] {
-  //   const swapVariables = swapVars(
-  //     BigInt(config.network.defaultMinerFee.multipliedBy(3).toString()),
-  //     config.network.minNitro,
-  //     minOutput,
-  //   );
-  //   if (!swapVariables) throw new Error('Error in swap vars!');
-  //   return swapVariables;
-  // }
-
-  // /**
-  //  * Prepares inputs for the swap
-  //  * @param {any[]} utxos - The unspent transaction outputs
-  //  * @param {any} from - The from asset
-  //  * @param {BigInt} baseInputAmount - The base input amount
-  //  * @param {any} config - The Cardano configuration
-  //  * @param {SwapExtremums} extremum - The swap extremums
-  //  * @returns {any[]}
-  //  */
-  // private prepareInputs(
-  //   utxos: any[],
-  //   from: any,
-  //   baseInputAmount: BigNumber,
-  //   config: any,
-  //   extremum: SwapExtremums,
-  // ): BoxSelection {
-  //   return getInputs(
-  //     utxos.map((utxo) => ({
-  //       ...utxo,
-  //       value: BigNumber(utxo.value),
-  //       assets: utxo.assets.map((asset: any) => ({
-  //         ...asset,
-  //         amount: BigNumber(asset.amount),
-  //       })),
-  //     })),
-  //     [new AssetAmount(from.asset, BigInt(baseInputAmount.toString()))],
-  //     {
-  //       minerFee: BigInt(config.network.defaultMinerFee.toString()),
-  //       uiFee: BigInt(config.network.defaultMinerFee.toString()),
-  //       exFee: BigInt(extremum.maxExFee.toString()),
-  //     },
-  //   );
-  // }
-
-  // /**
-  //  * Creates swap parameters
-  //  * @param {Pool} pool - The pool to use for the swap
-  //  * @param {string} output_address - The output address
-  //  * @param {any} baseInput - The base input
-  //  * @param {any} to - The to asset
-  //  * @param {[number, SwapExtremums]} swapVariables - The swap variables
-  //  * @param {any} config - The Cardano configuration
-  //  * @returns {SwapParams<NativeExFeeType>}
-  //  */
-  // private createSwapParams(
-  //   pool: Pool,
-  //   output_address: string,
-  //   baseInput: any,
-  //   to: any,
-  //   swapVariables: [number, SwapExtremums],
-  //   config: any,
-  // ): SwapParams<NativeExFeeType> {
-  //   const [exFeePerToken, extremum] = swapVariables;
-  //   const pk = publicKeyFromAddress(output_address);
-  //   if (!pk) throw new Error(`output_address is not defined.`);
-
-  //   return {
-  //     poolId: pool.id,
-  //     pk,
-  //     baseInput,
-  //     minQuoteOutput: extremum.minOutput.amount,
-  //     exFeePerToken,
-  //     uiFee: BigInt(config.network.defaultMinerFee.toString()),
-  //     quoteAsset: to.asset.id,
-  //     poolFeeNum: pool.poolFeeNum,
-  //     maxExFee: extremum.maxExFee,
-  //   };
-  // }
-
-  // /** // don't context in the cardano transactions
-  //  * Creates transaction context
-  //  * @param {any[]} inputs - The transaction inputs
-  //  * @param {NetworkContext} networkContext - The network context
-  //  * @param {string} return_address - The return address
-  //  * @param {any} config - The Cardano configuration
-  //  * @returns {TransactionContext}
-  //  */
-  // private createTxContext(
-  //   inputs: BoxSelection,
-  //   networkContext: NetworkContext,
-  //   return_address: string,
-  //   config: any,
-  // ): TransactionContext {
-  //   return getTxContext(
-  //     inputs,
-  //     networkContext,
-  //     return_address,
-  //     BigInt(config.network.defaultMinerFee.toString()),
-  //   );
-  // }
 
   /**
    * Gets the block timestamp
@@ -939,18 +669,25 @@ export class Cardano {
     return Number(blockInfo.data.timestamp);
   }
 
-  // /**
-  //  * Submits a transaction
-  //  * @param {CardanoAccount} account - The account submitting the transaction
-  //  * @param {any} tx - The transaction to submit
-  //  */
-  // private async submitTransaction(
-  //   account: CardanoAccount,
-  //   tx: any,
-  // ): Promise<void> {
-  //   const submit_tx = await account.prover.submit(tx);
-  //   if (!submit_tx.id) throw new Error(`Error during submit tx!`);
-  // }
+  /**
+   * Submits a transaction
+   * @param {CardanoWallet} account - The account submitting the transaction
+   * @param {any} tx - The transaction to submit
+   */
+  private async signAndSubmitTransaction(
+    wallet: CardanoWallet,
+    tx: Buffer,
+  ): Promise<string> {
+    try {
+      let signedtx = wallet.sing(tx);
+
+      let txHash = this._node.txManager.txManagerSubmit(signedtx);
+
+      return txHash;
+    } catch (err) {
+      throw new Error (`Error while signing and submitting the transaction: \n ${err}`)
+    }
+  }
 
   /**
    * Creates a trade response
@@ -1040,7 +777,7 @@ export class Cardano {
     );
     let minOutput = amount
       .multipliedBy(
-        this.formatAmount(
+        this.fromRaw(
           BigNumber(price),
           sell ? quoteToken.decimals : baseToken.decimals,
         ),
@@ -1076,7 +813,7 @@ export class Cardano {
    * @param {number} decimals - The number of decimals
    * @returns {string}
    */
-  private formatAmount(amount: BigNumber, decimals: number): string {
+  private fromRaw(amount: BigNumber, decimals: number): string {
     return amount.div(BigNumber(10).pow(decimals)).toString();
   }
 
