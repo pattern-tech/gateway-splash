@@ -826,82 +826,73 @@ export class Cardano {
   }
 
   /**
-   * Calculates the price
-   * @param {any} minOutput - The minimum output
-   * @param {any} from - The from asset
-   * @param {boolean} sell - Whether it's a sell operation
-   * @returns {string}
-   */
-  private async calculatePrice(
-    baseToken: CardanoToken,
-    quoteToken: CardanoToken,
-    sell: boolean,
-    priceLimit?: string,
-  ): Promise<Price> {
-    if (!priceLimit) {
-      // fetching the pair from splash
-      return this._dex.utils.selectEstimatedPrice({
-        orderBook: await this._dex.api.getOrderBook({
-          base: baseToken.token.asset,
-          quote: quoteToken.token.asset,
-        }),
-        input: sell
-          ? baseToken.token.withAmount(BigInt(1))
-          : quoteToken.token.withAmount(BigInt(1)),
-        priceType: 'average',
-      });
-    } else {
-      return Price.new({
-        base: baseToken.token.asset,
-        quote: quoteToken.token.asset,
-        raw: priceLimit,
-      });
-    }
+ * Calculates the price
+ * @param {CardanoToken} baseToken - The base token
+ * @param {CardanoToken} quoteToken - The quote token
+ * @param {boolean} sell - Whether it's a sell operation
+ * @param {string} [priceLimit] - Optional price limit
+ * @returns {Promise<Price>}
+ */
+private async calculatePrice(
+  baseToken: CardanoToken,
+  quoteToken: CardanoToken,
+  sell: boolean,
+  priceLimit?: string
+): Promise<Price> {
+  if (priceLimit) {
+    return Price.new({
+      base: baseToken.token.asset,
+      quote: quoteToken.token.asset,
+      raw: priceLimit,
+    });
   }
 
-  // /**
-  //  * Calculates gas-related values
-  //  * @param {number} minTxFee - The minimum transaction fee
-  //  * @returns {number}
-  //  */
-  // private calculateGas(minTxFee: number): number {
-  //   return BigNumber(minTxFee).div(BigNumber(10).pow(6)).toNumber();
-  // }
+  const orderBook = await this._dex.api.getOrderBook({
+    base: baseToken.token.asset,
+    quote: quoteToken.token.asset,
+  });
 
-  // /**
-  //  * Gets a pool by its ID
-  //  * @param {string} id - The pool ID
-  //  * @returns {Pool} The pool
-  //  */
-  // public getPool(id: string): Pool {
-  //   return <Pool>this.ammPools.find((ammPool) => ammPool.id === id);
-  // } // i don't think we need it (@arman)
+  const input = (sell ? baseToken : quoteToken).token.withAmount(BigInt(1));
 
-  // /**
-  //  * Gets pools by token pair
-  //  * @param {string} baseToken - The base token symbol
-  //  * @param {string} quoteToken - The quote token symbol
-  //  * @returns {Pool[]} The pools matching the token pair
-  //  */
-  // public getPoolByToken(baseToken: string, quoteToken: string): Pool[] {
-  //   const realBaseToken = this.storedAssetList.find(
-  //     (asset) => asset.symbol === baseToken,
-  //   );
-  //   const realQuoteToken = this.storedAssetList.find(
-  //     (asset) => asset.symbol === quoteToken,
-  //   );
-  //   if (!realBaseToken || !realQuoteToken)
-  //     throw new Error(`Pool not found for ${baseToken} and ${quoteToken}`);
-  //   return <Pool[]>(
-  //     this.ammPools.filter(
-  //       (ammPool) =>
-  //         (ammPool.x.asset.id === realBaseToken.tokenId &&
-  //           ammPool.y.asset.id === realQuoteToken.tokenId) ||
-  //         (ammPool.x.asset.id === realQuoteToken.tokenId &&
-  //           ammPool.y.asset.id === realBaseToken.tokenId),
-  //     )
-  //   );
-  // } // i don't think we need it (@arman)
+  return this._dex.utils.selectEstimatedPrice({
+    orderBook,
+    input,
+    priceType: 'average',
+  });
+}
+
+/**
+ * Gets a pool by its token ids without fetching the latest state of the pool
+ * @param {string} x - The base token name cbor hex encoded
+ * @param {string} y - The quote token name cbor hex encoded
+ * @returns {SplashPool[]} The founded pools
+ * @throws {Error} If no pools are found
+ */
+public getPoolByToken(x: string, y: string): SplashPool[] {
+  const { baseToQuote, quoteToBase } = getNftBase16Names(x, y);
+  
+  const pools = [
+    ...(this._splashPools[baseToQuote] || []),
+    ...(this._splashPools[quoteToBase] || [])
+  ];
+
+  if (pools.length === 0) {
+    throw new Error('pool not found');
+  }
+
+  return pools;
+}
+
+  /**
+ * Gets a pool by its token ids with fetching the latest state of the pool
+ * @param {string} x - The base token name cbor hex encoded
+ * @param {string} y - The quote token name cbor hex encoded
+   * @returns {SplashPool[]} The pools matching the token pair
+   */
+  public async fetchLatestPoolByToken(x: string, y: string): SplashPool[] {
+    this._splashPools = await getSplashPools(this._dex);
+    return this.getPoolByToken(x, y)
+  } 
 
   /**
    * Gets a transaction by its hash
