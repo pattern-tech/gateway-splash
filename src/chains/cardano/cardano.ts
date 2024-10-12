@@ -656,12 +656,9 @@ export class Cardano {
 
   /**
    * Gets the block timestamp
-   * @param {MaestroSupportedNetworks} networkContext - The network context
    * @returns {Promise<number>}
    */
-  private async getBlockTimestamp(
-    network: MaestroSupportedNetworks,
-  ): Promise<number> {
+  private async getBlockTimestamp(): Promise<number> {
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
