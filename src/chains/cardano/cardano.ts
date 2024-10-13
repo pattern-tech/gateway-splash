@@ -16,7 +16,6 @@ import {
   MaestroSupportedNetworks,
   TransactionInfo,
   TxManagerState,
-  TxsByAddressOrderEnum,
   Utxo,
 } from '@maestro-org/typescript-sdk';
 import fse from 'fs-extra';
@@ -26,6 +25,7 @@ import {
   hexToString,
   Price,
   Splash,
+  stringToHex,
 } from '@splashprotocol/sdk';
 import { sha256 } from '@ethersproject/solidity';
 import { getCardanoConfig } from './cardano.config';
@@ -151,6 +151,7 @@ export class Cardano {
         new Cardano(network, config, 1, {}, {}),
       );
     }
+
     let instance = Cardano._instances.get(instanceName) as Cardano;
 
     return instance;
@@ -332,45 +333,57 @@ export class Cardano {
     return decrypted.toString();
   }
 
+  // -- checked till here -- //
   /**
    * Gets the balance of a specific asset for an account
-   * @param {accountAddress} account - The account to get the balance for
+   * @param {string} accountAddress - The account to get the balance for
    * @param {string} assetName - The name of the asset
    * @returns {Promise<string>} The balance of the asset
+   * @throws {Error} If the asset is not found or there's a problem fetching UTXOs
    */
   public async getAssetBalance(
     accountAddress: string,
     assetName: string,
   ): Promise<string> {
-    const CardanoAsset = this._assetMap[assetName];
-    let balance = BigNumber(0);
-
-    if (!CardanoAsset)
-      throw new Error(`assetName not found ${this._chain} Node!`);
-    try {
-      const utxos = await this.getAddressUtxos(accountAddress, {
-        asset: CardanoAsset.name.concat(CardanoAsset.policyId),
-      });
-      utxos.forEach((utxo) =>
-        utxo.assets.forEach((asset) => {
-          balance.plus(asset.amount);
-        }),
-      );
-    } catch (error: any) {
-      throw new Error(
-        `problem during finding account assets ${this._chain} Node!`,
-      );
+    if (
+      assetName.toUpperCase() === 'LOVELACE' ||
+      assetName.toUpperCase() === 'ADA'
+    ) {
+      throw new Error('use `getAdaBalance` function !');
+    }
+    const cardanoAsset = this._assetMap[assetName];
+    if (!cardanoAsset) {
+      throw new Error(`Asset '${assetName}' not found in ${this._chain} Node!`);
     }
 
-    return balance.toString();
+    try {
+      const utxos = await this.getAddressUtxos(accountAddress, {
+        asset: `${cardanoAsset.policyId}${stringToHex(cardanoAsset.name)}`,
+      });
+
+      const balance = utxos.reduce(
+        (total, utxo) =>
+          utxo.assets.reduce(
+            (utxoTotal, asset) => utxoTotal.plus(asset.amount),
+            total,
+          ),
+        BigNumber(0),
+      );
+
+      return balance.toString();
+    } catch (error) {
+      throw new Error(
+        `Error fetching account assets from ${this._chain} Node: ${error}`,
+      );
+    }
   }
 
   /**
-   * Gets the balance of ERG and assets from unspent boxes
+   * Gets the balance of ADA and
    * @param {Utxo[]} utxos - The unspent transaction outputs
    * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
    */
-  public getBalance(utxos: Utxo[]): {
+  public getAdaBalance(utxos: Utxo[]): {
     balance: BigNumber;
     assets: Record<string, BigNumber>;
   } {
