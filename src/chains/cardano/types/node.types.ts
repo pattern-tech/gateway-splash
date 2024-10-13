@@ -18,3 +18,4 @@ export type poolNftNames = {
   baseToQuote: string;
   quoteToBase: string;
 };
+

@@ -3,6 +3,7 @@ import {
   CardanoConfig,
   CardanoConnectedInstance,
   CardanoToken,
+  TxRequestParams,
 } from './interfaces/cardano.interface';
 
 import dotenv from 'dotenv';
@@ -97,15 +98,15 @@ export class Cardano {
   }
 
   /**
-  * Initializes the Ergo instance
-  * @returns {Promise<void>}
-  */
- public async init(): Promise<void> {
-   await this.loadAssets();
-   await this.loadPools();
-   this._ready = true;
-   return;
- }
+   * Initializes the Ergo instance
+   * @returns {Promise<void>}
+   */
+  public async init(): Promise<void> {
+    await this.loadAssets();
+    await this.loadPools();
+    this._ready = true;
+    return;
+  }
 
   /**
    * Gets or creates an Cardano instance
@@ -226,13 +227,13 @@ export class Cardano {
     return connectedInstances;
   }
 
-  /**
+  /** // @arman
    * Gets the current block number
    * @returns {Promise<number>}
    */
   async getCurrentBlockNumber(): Promise<number> {
     const status = await this.getNetworkHeight();
-    return status + 1; // ask
+    return status + 1;
   }
 
   /**
@@ -241,16 +242,15 @@ export class Cardano {
    * @param {string} asset - (optional) The asset name
    * @returns {Promise<CardanoBox[]>}
    */
-  async getAddressUtxos(address: string, asset?: string) {
+  async getAddressUtxos(address: string, params?: TxRequestParams) {
     let utxos: Array<Utxo> = [];
-    let offset = 0;
 
     utxos = (
       await this._node.addresses.utxosByAddress(address, {
-        count: this.utxosLimit,
-        order: 'desc',
-        cursor: String(offset),
-        asset: asset || null,
+        count: params?.limit || this.utxosLimit,
+        order: params?.sortDirection || 'desc',
+        cursor: params?.offset || '0',
+        asset: params?.asset || null,
       })
     ).data;
 
@@ -348,10 +348,9 @@ export class Cardano {
     if (!CardanoAsset)
       throw new Error(`assetName not found ${this._chain} Node!`);
     try {
-      const utxos = await this.getAddressUtxos(
-        accountAddress,
-        CardanoAsset.name.concat(CardanoAsset.policyId),
-      );
+      const utxos = await this.getAddressUtxos(accountAddress, {
+        asset: CardanoAsset.name.concat(CardanoAsset.policyId),
+      });
       utxos.forEach((utxo) =>
         utxo.assets.forEach((asset) => {
           balance.plus(asset.amount);
@@ -702,8 +701,8 @@ export class Cardano {
     txHash: any,
   ): Promise<TradeResponse> {
     const decimals = sell
-    ? (baseToken.decimals as number)
-    : (quoteToken.decimals as number);
+      ? (baseToken.decimals as number)
+      : (quoteToken.decimals as number);
 
     return {
       network: this._network,
@@ -713,7 +712,7 @@ export class Cardano {
       quote: quoteToken.symbol,
       amount: this.toRaw(amount, decimals),
       rawAmount: String(amount),
-      expectedOut:this.toRaw(minOutput,decimals),
+      expectedOut: this.toRaw(minOutput, decimals),
       price,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
@@ -752,7 +751,12 @@ export class Cardano {
       (await this.calculatePrice(baseToken, quoteToken, sell, priceLimit)).raw,
     );
 
-    let minOutput = this.calculateMinOutput(amount, BigNumber(price), decimals, Number(slippage));
+    let minOutput = this.calculateMinOutput(
+      amount,
+      BigNumber(price),
+      decimals,
+      Number(slippage),
+    );
 
     return {
       base: baseToken.symbol,
@@ -771,10 +775,15 @@ export class Cardano {
     };
   }
 
-  public calculateMinOutput(amount:  BigNumber, price : BigNumber, decimals: number, slippage: number ): BigNumber {
+  public calculateMinOutput(
+    amount: BigNumber,
+    price: BigNumber,
+    decimals: number,
+    slippage: number,
+  ): BigNumber {
     return amount
-    .multipliedBy(this.fromRaw(price, decimals))
-    .multipliedBy(slippage / 100);
+      .multipliedBy(this.fromRaw(price, decimals))
+      .multipliedBy(slippage / 100);
   }
 
   /**
@@ -885,15 +894,13 @@ export class Cardano {
    */
   public async getAddressTxs(
     address: string,
-    limit?: number,
-    sortDirection?: string,
-    offset?: string,
+    params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
     return (
       await this._node.addresses.txsByAddress(address, {
-        count: limit || 100,
-        cursor: offset || '0',
-        order: (sortDirection as TxsByAddressOrderEnum) || 'desc',
+        count: params?.limit || this.utxosLimit,
+        order: params?.sortDirection || 'desc',
+        cursor: params?.offset || '0',
       })
     ).data;
   }

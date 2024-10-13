@@ -1,5 +1,6 @@
 import { Currency } from "@splashprotocol/sdk";
 import { Cardano } from "../cardano";
+import { UtxosByAddressOrderEnum } from "@maestro-org/typescript-sdk";
 
 export interface PollResponse {}
 
@@ -69,4 +70,11 @@ export interface CardanoConfig {
 
 export interface CardanoConnectedInstance {
     [name: string]: Cardano;
-  }
+}
+
+export interface TxRequestParams {
+  limit?: number, 
+  offset? : string, 
+  sortDirection?: UtxosByAddressOrderEnum,
+  asset? : string
+}
