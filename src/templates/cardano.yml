@@ -4,4 +4,4 @@ networks:
     timeOut: 30000
     maxLRUCacheInstances: 10
     utxosLimit: 100
-    defaultSlippage: 5
+    defaultSlippage: "5"

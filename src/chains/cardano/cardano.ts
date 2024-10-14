@@ -22,7 +22,6 @@ import fse from 'fs-extra';
 import {
   cborHexToBytes,
   Currency,
-  hexToString,
   Price,
   Splash,
   stringToHex,
@@ -62,7 +61,7 @@ export class Cardano {
   public controller: CardanoController;
   private utxosLimit: number;
   private timeout: number;
-  private defaultSlippage: number;
+  private defaultSlippage: TradeSlippage;
 
   /**
    * Creates an instance of Cardano.
@@ -93,7 +92,7 @@ export class Cardano {
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
     this.timeout = config.network.timeOut;
-    this.defaultSlippage = config.network.defaultSlippage;
+    this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
   }
 
@@ -425,7 +424,7 @@ export class Cardano {
    * @param {BigNumber} amount - The amount to swap
    * @param {string} priceLimit - Either the swap is a limit order or a market price swap
    * @param {boolean} sell - Either the swap is sell or buy position
-   * @param {TradeSlippage} [slippage] - The slippage tolerance
+   * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<TradeResponse>} The trade response
    */
 
@@ -436,7 +435,7 @@ export class Cardano {
     amount: BigNumber,
     priceLimit?: string,
     sell: boolean = false,
-    slippage: TradeSlippage = '5',
+    slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
     const [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
@@ -609,7 +608,7 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
-    slippage: TradeSlippage = '1',
+    slippage: TradeSlippage = this.defaultSlippage,
 
   ): Promise<PriceResponse> {
     const [realBaseToken, realQuoteToken] = this.validateTokens(

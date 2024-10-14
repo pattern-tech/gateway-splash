@@ -62,7 +62,7 @@ export interface CardanoNetworkConfig {
   timeOut: number;
   maxLRUCacheInstances: number;
   utxosLimit: number;
-  defaultSlippage: number;
+  defaultSlippage: string;
 }
 export interface CardanoConfig {
   network: CardanoNetworkConfig;
