@@ -51,7 +51,7 @@ import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 
 export class Cardano {
   private static _instances: LRUCache<string, Cardano>;
-  private _assetMap: Record<string, CardanoToken> = {};
+  public _assetMap: Record<string, CardanoToken> = {};
   private _chain: string = 'cardano';
   private _network: MaestroSupportedNetworks;
   private _node: MaestroClient;
@@ -184,7 +184,18 @@ export class Cardano {
    * Checks if the Cardano instance is ready
    * @returns {boolean}
    */
-  public ready(): boolean {
+  public async ready(): Promise<boolean> {
+    const protocolParams = (await this._node.general.protocolParameters())
+      .data;
+
+    this.minFee =
+      protocolParams.min_fee_coefficient +
+      protocolParams.min_fee_constant.ada.lovelace;
+    // we load pools then we fetch the tokens from it
+    await this.loadPools();
+
+    // fetching tokens from it
+    await this.loadAssets();
     return this._ready;
   }
 

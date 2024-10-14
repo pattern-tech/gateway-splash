@@ -4,19 +4,32 @@ import { UtxosByAddressOrderEnum } from "@maestro-org/typescript-sdk";
 
 export interface PollResponse {}
 
-export interface PollRequest {}
+export interface PoolRequest {
+  network: string;
+  poolId: string;
+}
+
+export interface PoolResponse {
+  id: string;
+}
+
+export interface PollRequest {
+  txHash: string;
+}
 
 export interface NonceResponse {}
 
 export interface NonceRequest {}
 
-export interface tokenResponse {}
+export interface TokenResponse {}
 
-export interface tokenRequest {}
+export interface TokenRequest {}
 
-export interface balancesResponse {}
+export interface BalancesResponse {}
 
-export interface balancesRequest {}
+export interface BalancesRequest {
+  address: string;
+}
 
 export interface CardanoToken {
     token: Currency,
