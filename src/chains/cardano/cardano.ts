@@ -370,7 +370,7 @@ export class Cardano {
         BigNumber(0),
       );
 
-      return balance.toString();
+      return this.fromRaw(balance, cardanoAsset.decimals);
     } catch (error) {
       throw new Error(
         `Error fetching account assets from ${this._chain} Node: ${error}`,
@@ -379,30 +379,26 @@ export class Cardano {
   }
 
   /**
-   * Gets the balance of ADA and
+   * Gets the balance of ADA
    * @param {Utxo[]} utxos - The unspent transaction outputs
-   * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
+   * @returns {Prmoise<string>}
    */
-  public getAdaBalance(utxos: Utxo[]): {
-    balance: BigNumber;
-    assets: Record<string, BigNumber>;
-  } {
-    let balance: BigNumber = BigNumber(0);
-    let assets: Record<string, BigNumber> = {};
-
-    utxos.forEach((utxo) =>
-      utxo.assets.forEach((asset) => {
-        if (asset.unit == 'lovelace') {
-          // its ada
-          balance.plus(BigNumber(asset.amount));
-        } else {
-          assets[hexToString(asset.unit.slice(56))] = BigNumber(asset.amount);
-          // we can return the currency obj at this stage as well
-        }
-      }),
-    );
-
-    return { balance, assets };
+  public async getAdaBalance(accountAddress: string): Promise<string> {
+    try {
+      return this.fromRaw(
+        BigNumber(
+          String(
+            (await this._node.addresses.addressBalance(accountAddress))
+              .lovelace,
+          ),
+        ),
+        6,
+      );
+    } catch (error) {
+      throw new Error(
+        `Error while fetching the ${accountAddress} balance, Node: ${error}`,
+      );
+    }
   }
 
   /**
@@ -412,15 +408,6 @@ export class Cardano {
   private async loadAssets() {
     this._assetMap = await getAssetsFromPools(this._node, this._splashPools);
   }
-
-  // /**
-  //  * Retrieves asset data from the DEX
-  //  * @private
-  //  * @returns {Promise<any>} Asset data
-  //  */
-  // private async getAssetData() {
-  //   return await this._node.assets.assetInfo.api.getAssetsMetadata();
-  // } // we have stored asset list
 
   /**
    * Loads AMM pools
@@ -810,7 +797,7 @@ export class Cardano {
   }
 
   /**
-   * Formats an amount with proper decimals
+   * Creates an raw number with proper decimals
    * @param {BigNumber} amount - The amount to format
    * @param {number} decimals - The number of decimals
    * @returns {string}
