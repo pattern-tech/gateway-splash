@@ -494,8 +494,8 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
   ): [CardanoToken, CardanoToken] {
-    const baseCardanoToken = this._assetMap[baseToken.toUpperCase()];
-    const quoteCardanoToken = this._assetMap[quoteToken.toUpperCase()];
+    const baseCardanoToken = this.findToken(baseToken.toUpperCase());
+    const quoteCardanoToken = this.findToken(quoteToken.toUpperCase());
 
     if (!baseCardanoToken)
       throw new Error(
@@ -601,69 +601,42 @@ export class Cardano {
    * Estimates the price for a swap
    * @param {string} baseToken - The base token symbol
    * @param {string} quoteToken - The quote token symbol
-   * @param {BigNumber} value - The amount to swap
-   * @param {number} [slippage] - The slippage tolerance
+   * @param {BigNumber} amount - The amount to swap
+   * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<PriceResponse>} The price estimate
    */
   public async estimate(
     baseToken: string,
     quoteToken: string,
-    value: BigNumber,
-    slippage?: number,
+    amount: BigNumber,
+    slippage: TradeSlippage = '1',
+
   ): Promise<PriceResponse> {
-    // fetching the tokens
-    let realBaseToken = this.findToken(baseToken);
-    let realQuoteToken = this.findToken(quoteToken);
-
-    if (!realBaseToken || !realQuoteToken) {
-      throw new Error('unsupported token ?');
-    }
-
-    // const config = getCardanoConfig(this.network);
+    const [realBaseToken, realQuoteToken] = this.validateTokens(
+      baseToken.toUpperCase(),
+      quoteToken.toUpperCase(),
+    );
+    let nftBase16Name = getNftBase16Names(
+      realBaseToken.token.asset.nameBase16,
+      realQuoteToken.token.asset.nameBase16,
+    );
 
     let sell: boolean;
 
-    if (
-      this._splashPools[
-        getNftBase16Names(
-          realBaseToken.token.asset.nameBase16,
-          realQuoteToken.token.asset.nameBase16,
-        ).quoteToBase
-      ]
-    ) {
+    if (this._splashPools[nftBase16Name.quoteToBase]) {
       sell = true;
-    } else if (
-      this._splashPools[
-        getNftBase16Names(
-          realBaseToken.token.asset.nameBase16,
-          realQuoteToken.token.asset.nameBase16,
-        ).baseToQuote
-      ]
-    ) {
+    } else if (this._splashPools[nftBase16Name.baseToQuote]) {
       sell = false;
     } else {
-      throw new Error("didn't found the pool");
+      throw new Error("didn't find the pool");
     }
 
     return this.createPriceResponse(
       realBaseToken,
       realQuoteToken,
-      value,
-      // from,
-      // minOutput,
-      // pool,
+      amount,
       sell,
-      // config,
-      // price,
-      slippage ? String(slippage) : '1',
-      // -----
-      // baseToken: CardanoToken,
-      // quoteToken: CardanoToken,
-      // amount: BigNumber,
-      // minOutput: any,
-      // sell: boolean,
-      // priceLimit: string,
-      // estimatedFee: number,
+      slippage,
     );
   }
 
