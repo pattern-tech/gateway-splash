@@ -73,7 +73,6 @@ export class Cardano {
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
-    assets: Record<string, CardanoToken>,
   ) {
     if (
       network !== 'Mainnet' &&
@@ -148,7 +147,7 @@ export class Cardano {
     if (!Cardano._instances.has(instanceName)) {
       Cardano._instances.set(
         instanceName,
-        new Cardano(network, config, 1, {}, {}),
+        new Cardano(network, config, 1, {}),
       );
     }
 
