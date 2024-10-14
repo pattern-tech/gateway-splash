@@ -25,6 +25,7 @@ import {
   Price,
   Splash,
   stringToHex,
+  Transaction,
 } from '@splashprotocol/sdk';
 import { sha256 } from '@ethersproject/solidity';
 import { getCardanoConfig } from './cardano.config';
@@ -70,7 +71,7 @@ export class Cardano {
   private constructor(
     network: MaestroSupportedNetworks,
     config: CardanoConfig,
-    minFee: number,
+    minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
     assets: Record<string, CardanoToken>,
   ) {
@@ -452,6 +453,7 @@ export class Cardano {
       baseCardanoToken.token.asset.nameBase16,
       quoteCardanoToken.token.asset.nameBase16,
     );
+
     this.validatePool(poolNftNamesBase16);
 
     const price = await this.getPrice(
@@ -475,7 +477,12 @@ export class Cardano {
       Buffer.from(cborHexToBytes(swapTx.cbor)),
     );
 
-    const minOutput = amount.multipliedBy(price.raw);
+    const minOutput = this.calculateMinOutput(
+      amount,
+      BigNumber(price.raw),
+      outputToken.asset.decimals,
+      Number(slippage),
+    );
 
     return this.createTradeResponse(
       baseCardanoToken,
@@ -489,6 +496,13 @@ export class Cardano {
     );
   }
 
+  /**
+   * Validates the base and quote tokens for a swap
+   * @param {string} baseToken - The symbol or name of the base token
+   * @param {string} quoteToken - The symbol or name of the quote token
+   * @returns {[CardanoToken, CardanoToken]} An array containing the validated base and quote CardanoTokens
+   * @throws {Error} If either the base or quote token is not supported by the DEX
+   */
   private validateTokens(
     baseToken: string,
     quoteToken: string,
@@ -508,6 +522,14 @@ export class Cardano {
     return [baseCardanoToken, quoteCardanoToken];
   }
 
+  /**
+   * Creates Currency objects for the input and output tokens of a swap
+   * @param {CardanoToken} baseCardanoToken - The base token
+   * @param {CardanoToken} quoteCardanoToken - The quote token
+   * @param {BigNumber} amount - The amount to swap
+   * @param {boolean} sell - Whether this is a sell operation
+   * @returns {[Currency, Currency]} An array containing the input and output Currency objects
+   */
   private createTokens(
     baseCardanoToken: CardanoToken,
     quoteCardanoToken: CardanoToken,
@@ -528,6 +550,13 @@ export class Cardano {
     return sell ? [inputToken, outputToken] : [outputToken, inputToken];
   }
 
+  /**
+   * Validates that a pool exists for the given token pair
+   * @param {Object} poolNftNamesBase16 - Object containing base16 encoded pool NFT names
+   * @param {string} poolNftNamesBase16.baseToQuote - Base to quote pool NFT name
+   * @param {string} poolNftNamesBase16.quoteToBase - Quote to base pool NFT name
+   * @throws {Error} If no pool is found for the token pair
+   */
   private validatePool(poolNftNamesBase16: {
     baseToQuote: string;
     quoteToBase: string;
@@ -542,6 +571,15 @@ export class Cardano {
     }
   }
 
+  /**
+   * Gets the price for a swap
+   * @param {CardanoToken} baseCardanoToken - The base token
+   * @param {CardanoToken} quoteCardanoToken - The quote token
+   * @param {BigNumber} amount - The amount to swap
+   * @param {string | undefined} priceLimit - Optional price limit for the swap
+   * @param {boolean} sell - Whether this is a sell operation
+   * @returns {Promise<Price>} A promise that resolves to the price for the swap
+   */
   private async getPrice(
     baseCardanoToken: CardanoToken,
     quoteCardanoToken: CardanoToken,
@@ -571,13 +609,21 @@ export class Cardano {
     });
   }
 
+  /**
+   * Creates a swap transaction
+   * @param {Currency} inputToken - The input token for the swap
+   * @param {Currency} outputToken - The output token for the swap
+   * @param {Price} price - The price for the swap
+   * @param {number} slippage - The slippage tolerance for the swap
+   * @returns {Promise<Transaction>} A promise that resolves to the created swap transaction
+   */
   private async createSwapTransaction(
     inputToken: Currency,
     outputToken: Currency,
     price: Price,
     slippage: number,
-  ): Promise<any> {
-    return this._dex
+  ): Promise<Transaction> {
+    return await this._dex
       .newTx()
       .spotOrder({
         input: inputToken,
@@ -588,7 +634,12 @@ export class Cardano {
       .complete();
   }
 
-  private async estimateFee(swapTx: any): Promise<number> {
+  /**
+   * Estimates the fee for a swap transaction
+   * @param {Transaction} swapTx - The swap transaction
+   * @returns {Promise<number>} A promise that resolves to the estimated fee
+   */
+  private async estimateFee(swapTx: Transaction): Promise<number> {
     const protocolParams = (await this._node.general.protocolParameters()).data;
     return (
       protocolParams.min_fee_coefficient +
@@ -596,6 +647,7 @@ export class Cardano {
         cborHexToBytes(swapTx.cbor).length
     );
   }
+
   /**
    * Estimates the price for a swap
    * @param {string} baseToken - The base token symbol
@@ -609,7 +661,6 @@ export class Cardano {
     quoteToken: string,
     amount: BigNumber,
     slippage: TradeSlippage = this.defaultSlippage,
-
   ): Promise<PriceResponse> {
     const [realBaseToken, realQuoteToken] = this.validateTokens(
       baseToken.toUpperCase(),
@@ -640,8 +691,8 @@ export class Cardano {
   }
 
   /**
-   * Finds a token by its symbol
-   * @param {string} symbol - The token symbol
+   * Finds a token by its symbol or name
+   * @param {string} symbolOrName - The token symbol or name
    * @returns {CardanoToken}
    */
   private findToken(symbolOrName: string): CardanoToken | undefined {
@@ -666,8 +717,8 @@ export class Cardano {
 
   /**
    * Submits a transaction
-   * @param {CardanoWallet} account - The account submitting the transaction
-   * @param {any} tx - The transaction to submit
+   * @param {CardanoWallet} wallet - The wallet submitting the transaction
+   * @param {Buffer} tx - The transaction to submit
    */
   private async signAndSubmitTransaction(
     wallet: CardanoWallet,
@@ -687,18 +738,16 @@ export class Cardano {
   }
 
   /**
-   * Creates a trade response
-   * @param {CardanoToken} realBaseToken - The base token
-   * @param {CardanoToken} realQuoteToken - The quote token
-   * @param {BigNumber} amount - The amount
-   * @param {any} from - The from asset
-   * @param {any} minOutput - The minimum output
-   * @param {Pool} pool - The pool used for the swap
-   * @param {boolean} sell - Whether it's a sell operation
-   * @param {any} config - The Cardano configuration
-   * @param {number} timestamp - The transaction timestamp
-   * @param {any} tx - The transaction
-   * @returns {TradeResponse}
+   * Creates a trade response for a completed swap
+   * @param {CardanoToken} baseToken - The base token of the trading pair
+   * @param {CardanoToken} quoteToken - The quote token of the trading pair
+   * @param {BigNumber} amount - The amount of tokens swapped
+   * @param {string} price - The price at which the swap occurred
+   * @param {any} minOutput - The minimum output amount for the swap
+   * @param {boolean} sell - Whether it's a sell operation (true) or buy operation (false)
+   * @param {number} estimatedFee - The estimated fee for the swap
+   * @param {any} txHash - The transaction hash of the swap
+   * @returns {Promise<TradeResponse>} A promise that resolves to the trade response
    */
   private async createTradeResponse(
     baseToken: CardanoToken,
@@ -733,16 +782,15 @@ export class Cardano {
   }
 
   /**
-   * Creates a price response
-   * @param {CardanoToken} realBaseToken - The base token
-   * @param {CardanoToken} realQuoteToken - The quote token
-   * @param {BigNumber} amount - The amount
-   * @param {any} from - The from asset
-   * @param {any} minOutput - The minimum output
-   * @param {boolean} sell - Whether it's a sell operation
-   * @param {any} config - The Cardano configuration
-   * @param {BigNumber} expectedAmount - The expected amount
-   * @returns {PriceResponse}
+   * Creates a price response for a potential swap
+   * @param {CardanoToken} baseToken - The base token of the trading pair
+   * @param {CardanoToken} quoteToken - The quote token of the trading pair
+   * @param {BigNumber} amount - The amount of tokens to swap
+   * @param {boolean} sell - Whether it's a sell operation (true) or buy operation (false)
+   * @param {String} [slippage] - Optional. The slippage tolerance for the swap
+   * @param {string} [priceLimit] - Optional. The price limit for the swap
+   * @param {string} [estimatedFee] - Optional. The estimated fee for the swap
+   * @returns {Promise<PriceResponse>} A promise that resolves to the price response
    */
   private async createPriceResponse(
     baseToken: CardanoToken,
@@ -785,6 +833,14 @@ export class Cardano {
     };
   }
 
+  /**
+   * Calculates the minimum output amount for a swap, considering the given slippage
+   * @param {BigNumber} amount - The input amount for the swap
+   * @param {BigNumber} price - The price of the asset
+   * @param {number} decimals - The number of decimal places for the asset
+   * @param {number} slippage - The slippage tolerance as a percentage (e.g., 1 for 1%)
+   * @returns {BigNumber} The minimum output amount considering the slippage
+   */
   public calculateMinOutput(
     amount: BigNumber,
     price: BigNumber,
@@ -797,7 +853,7 @@ export class Cardano {
   }
 
   /**
-   * Formats an amount with proper decimals
+   * Formats an raw amount with proper decimals
    * @param {BigNumber} amount - The amount to format
    * @param {number} decimals - The number of decimals
    * @returns {string}
@@ -807,7 +863,7 @@ export class Cardano {
   }
 
   /**
-   * Creates an raw number with proper decimals
+   * Creates an raw amount with proper decimals
    * @param {BigNumber} amount - The amount to format
    * @param {number} decimals - The number of decimals
    * @returns {string}
