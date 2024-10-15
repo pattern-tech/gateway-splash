@@ -22,6 +22,7 @@ import fse from 'fs-extra';
 import {
   cborHexToBytes,
   Currency,
+  hexToString,
   Price,
   Splash,
   stringToHex,
@@ -145,10 +146,7 @@ export class Cardano {
     }
 
     if (!Cardano._instances.has(instanceName)) {
-      Cardano._instances.set(
-        instanceName,
-        new Cardano(network, config, 1, {}),
-      );
+      Cardano._instances.set(instanceName, new Cardano(network, config, 1, {}));
     }
 
     let instance = Cardano._instances.get(instanceName) as Cardano;
@@ -185,8 +183,7 @@ export class Cardano {
    * @returns {boolean}
    */
   public async ready(): Promise<boolean> {
-    const protocolParams = (await this._node.general.protocolParameters())
-      .data;
+    const protocolParams = (await this._node.general.protocolParameters()).data;
 
     this.minFee =
       protocolParams.min_fee_coefficient +
@@ -409,6 +406,37 @@ export class Cardano {
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
     }
+  }
+
+  /**
+   * Gets the balance of ADA and assets from unspent transaction outputs
+   * @param {Utxo[]} utxos - The unspent transaction outputs
+   * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
+   */
+  public getBalance(utxos: Utxo[]) {
+    const assets: Record<string, BigNumber> = {};
+
+    for (const utxo of utxos) {
+      for (const asset of utxo.assets) {
+        const { unit, amount } = asset;
+        const isAda = unit.toUpperCase() === 'LOVELACE';
+        const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
+        const tokenDecimals = isAda
+          ? 6
+          : this.findToken(tokenName)?.decimals ?? 6;
+
+        assets[tokenName] = BigNumber(
+          this.fromRaw(
+            (assets[tokenName] || BigNumber(0)).plus(BigNumber(amount)),
+            tokenDecimals,
+          ),
+        );
+      }
+    }
+    let balance = assets['ADA'];
+    delete assets['ADA'];
+
+    return { balance, assets };
   }
 
   /**
