@@ -16,7 +16,8 @@ import {
   MaestroSupportedNetworks,
   TransactionInfo,
   TxManagerState,
-  Utxo,
+  // Utxo,
+  UtxoWithSlot,
 } from '@maestro-org/typescript-sdk';
 import fse from 'fs-extra';
 import {
@@ -66,8 +67,8 @@ export class Cardano {
   private defaultSlippage: TradeSlippage;
 
   /**
-   * Creates an instance of Cardano.
-   * @param {CardanoNetwork} network - The Cardano network to connect to ('mainnet' or 'testnet')
+   * Synchronously Creates an instance of Cardano.
+   * @param {CardanoNetwork} network - The Cardano network to connect to ('mainnet', 'preprod' or 'testnet')
    */
   private constructor(
     network: MaestroSupportedNetworks,
@@ -75,14 +76,6 @@ export class Cardano {
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
   ) {
-    if (
-      network !== 'Mainnet' &&
-      network !== 'Preprod' &&
-      network !== 'Preview'
-    ) {
-      throw new Error('network should be `mainnet`, `preprod` or `preview`');
-    }
-
     this._network = network;
     this._node = new MaestroClient(
       getMaestroConfig(network, config.network.nodeURL),
@@ -91,14 +84,14 @@ export class Cardano {
     this._dex = getSplashInstance(network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
-    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
+    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos to fetch.
     this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
   }
 
   /**
-   * Initializes the Ergo instance
+   * Asynchronously Initializes the Cardano instance
    * @returns {Promise<void>}
    */
   public async init(): Promise<void> {
@@ -125,16 +118,11 @@ export class Cardano {
         [Date.now(), String(network)] as const,
       ).slice(0, 16);
 
-    if (Cardano._instances.has(instanceName)) {
+    let cardanoInstance: Cardano | undefined =
       Cardano._instances.get(instanceName);
-    }
 
-    if (
-      network !== 'Mainnet' &&
-      network !== 'Preprod' &&
-      network !== 'Preview'
-    ) {
-      throw new Error('network should be `mainnet`, `preprod` or `preview`');
+    if (cardanoInstance) {
+      return cardanoInstance;
     }
 
     const config = getCardanoConfig(network);
@@ -145,9 +133,7 @@ export class Cardano {
       });
     }
 
-    if (!Cardano._instances.has(instanceName)) {
-      Cardano._instances.set(instanceName, new Cardano(network, config, 1, {}));
-    }
+    Cardano._instances.set(instanceName, new Cardano(network, config, 1, {}));
 
     let instance = Cardano._instances.get(instanceName) as Cardano;
 
@@ -182,17 +168,7 @@ export class Cardano {
    * Checks if the Cardano instance is ready
    * @returns {boolean}
    */
-  public async ready(): Promise<boolean> {
-    const protocolParams = (await this._node.general.protocolParameters()).data;
-
-    this.minFee =
-      protocolParams.min_fee_coefficient +
-      protocolParams.min_fee_constant.ada.lovelace;
-    // we load pools then we fetch the tokens from it
-    await this.loadPools();
-
-    // fetching tokens from it
-    await this.loadAssets();
+  public ready(): boolean {
     return this._ready;
   }
 
@@ -200,7 +176,7 @@ export class Cardano {
    * Gets the current network height
    * @returns {Promise<number>}
    */
-  public async getNetworkHeight() {
+  public async getNetworkHeight(): Promise<number> {
     return (await this._node.general.chainTip()).data.height;
   }
 
@@ -235,7 +211,7 @@ export class Cardano {
     return connectedInstances;
   }
 
-  /** // @arman
+  /** // @arman check this function
    * Gets the current block number
    * @returns {Promise<number>}
    */
@@ -248,10 +224,13 @@ export class Cardano {
    * Gets either all of the unspent tx's or Utxos with specific address for a given address
    * @param {string} address - The address to get unspent transactions for
    * @param {string} asset - (optional) The asset name
-   * @returns {Promise<CardanoBox[]>}
+   * @returns {Promise<UtxoWithSlot[]>}
    */
-  async getAddressUtxos(address: string, params?: TxRequestParams) {
-    let utxos: Array<Utxo> = [];
+  async getAddressUtxos(
+    address: string,
+    params?: TxRequestParams,
+  ): Promise<UtxoWithSlot[]> {
+    let utxos: Array<UtxoWithSlot> = [];
 
     utxos = (
       await this._node.addresses.utxosByAddress(address, {
@@ -340,7 +319,6 @@ export class Cardano {
     return decrypted.toString();
   }
 
-  // -- checked till here -- //
   /**
    * Gets the balance of a specific asset for an account
    * @param {string} accountAddress - The account to get the balance for
@@ -352,12 +330,10 @@ export class Cardano {
     accountAddress: string,
     assetName: string,
   ): Promise<string> {
-    if (
-      assetName.toUpperCase() === 'LOVELACE' ||
-      assetName.toUpperCase() === 'ADA'
-    ) {
+    if (['LOVELACE', 'ADA'].includes(assetName.toUpperCase())) {
       throw new Error('use `getAdaBalance` function !');
     }
+
     const CardanoToken = this._assetMap[assetName];
     if (!CardanoToken) {
       throw new Error(`Asset '${assetName}' not found in ${this._chain} Node!`);
@@ -387,7 +363,7 @@ export class Cardano {
 
   /**
    * Gets the balance of ADA
-   * @param {Utxo[]} utxos - The unspent transaction outputs
+   * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
    * @returns {Prmoise<string>}
    */
   public async getAdaBalance(accountAddress: string): Promise<string> {
@@ -410,10 +386,10 @@ export class Cardano {
 
   /**
    * Gets the balance of ADA and assets from unspent transaction outputs
-   * @param {Utxo[]} utxos - The unspent transaction outputs
+   * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
    * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
    */
-  public getBalance(utxos: Utxo[]) {
+  public getBalance(utxos: UtxoWithSlot[]) {
     const assets: Record<string, BigNumber> = {};
 
     for (const utxo of utxos) {
@@ -433,6 +409,7 @@ export class Cardano {
         );
       }
     }
+
     let balance = assets['ADA'];
     delete assets['ADA'];
 
@@ -440,7 +417,7 @@ export class Cardano {
   }
 
   /**
-   * Loads assets from the DEX
+   * Loads assets from the DEX pools
    * @private
    */
   private async loadAssets() {
@@ -480,6 +457,7 @@ export class Cardano {
       baseToken,
       quoteToken,
     );
+
     const [inputToken, outputToken] = this.createTokens(
       baseCardanoToken,
       quoteCardanoToken,
@@ -734,16 +712,14 @@ export class Cardano {
    * @returns {CardanoToken}
    */
   private findToken(symbolOrName: string): CardanoToken | undefined {
-    const token = this.storedAssetList.find(
-      (asset) =>
-        asset.symbol === symbolOrName.toUpperCase() ||
-        asset.name === symbolOrName.toUpperCase(),
+    const token = this.storedAssetList.find((asset) =>
+      [asset.symbol, asset.name].includes(symbolOrName.toUpperCase()),
     );
     return token;
   }
 
   /**
-   * Gets the block timestamp
+   * Gets the latest block timestamp
    * @returns {Promise<number>}
    */
   private async getBlockTimestamp(): Promise<number> {
@@ -781,10 +757,10 @@ export class Cardano {
    * @param {CardanoToken} quoteToken - The quote token of the trading pair
    * @param {BigNumber} amount - The amount of tokens swapped
    * @param {string} price - The price at which the swap occurred
-   * @param {any} minOutput - The minimum output amount for the swap
+   * @param {BigNumber} minOutput - The minimum output amount for the swap
    * @param {boolean} sell - Whether it's a sell operation (true) or buy operation (false)
    * @param {number} estimatedFee - The estimated fee for the swap
-   * @param {any} txHash - The transaction hash of the swap
+   * @param {string} txHash - The transaction hash of the swap
    * @returns {Promise<TradeResponse>} A promise that resolves to the trade response
    */
   private async createTradeResponse(
@@ -792,10 +768,10 @@ export class Cardano {
     quoteToken: CardanoToken,
     amount: BigNumber,
     price: string,
-    minOutput: any,
+    minOutput: BigNumber,
     sell: boolean,
     estimatedFee: number,
-    txHash: any,
+    txHash: string,
   ): Promise<TradeResponse> {
     const decimals = sell
       ? (baseToken.decimals as number)
