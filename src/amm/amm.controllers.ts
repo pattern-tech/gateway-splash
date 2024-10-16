@@ -82,17 +82,19 @@ import { Tinyman } from '../connectors/tinyman/tinyman';
 import { Plenty } from '../connectors/plenty/plenty';
 import { Osmosis } from '../chains/osmosis/osmosis';
 import { Carbonamm } from '../connectors/carbon/carbonAMM';
+import {Cardano} from "../chains/cardano/cardano";
+import {Splash} from "../connectors/splash/splash";
 
 export async function price(req: PriceRequest): Promise<PriceResponse> {
   const chain = await getInitializedChain<
-    Algorand | Ethereumish | Nearish | Tezosish | Osmosis
+    Algorand | Ethereumish | Nearish | Tezosish | Osmosis | Cardano
   >(req.chain, req.network);
   if (chain instanceof Osmosis){
     return chain.controller.price(chain as unknown as Osmosis, req);
   }
 
-  const connector: Uniswapish | RefAMMish | Tinyman | Plenty  =
-    await getConnector<Uniswapish | RefAMMish | Tinyman | Plenty>(
+  const connector: Uniswapish | RefAMMish | Tinyman | Plenty | Splash  =
+    await getConnector<Uniswapish | RefAMMish | Tinyman | Plenty | Splash>(
       req.chain,
       req.network,
       req.connector
@@ -107,21 +109,24 @@ export async function price(req: PriceRequest): Promise<PriceResponse> {
     return uniswapPrice(<Ethereumish>chain, connector, req);
   } else if (connector instanceof Tinyman) {
     return tinymanPrice(chain as unknown as Algorand, connector, req);
-  } else {
+  }else if (connector instanceof Splash) {
+    return connector.estimateTrade(req);
+  }
+  else {
     return refPrice(<Nearish>chain, connector as RefAMMish, req);
   }
 }
 
 export async function trade(req: TradeRequest): Promise<TradeResponse> {
   const chain = await getInitializedChain<
-    Algorand | Ethereumish | Nearish | Tezosish | Osmosis
+    Algorand | Ethereumish | Nearish | Tezosish | Osmosis | Cardano
   >(req.chain, req.network);
   if (chain instanceof Osmosis){
     return chain.controller.trade(chain as unknown as Osmosis, req);
   }
 
-  const connector: Uniswapish | RefAMMish | Tinyman | Plenty =
-    await getConnector<Uniswapish | RefAMMish | Tinyman | Plenty>(
+  const connector: Uniswapish | RefAMMish | Tinyman | Plenty | Splash =
+    await getConnector<Uniswapish | RefAMMish | Tinyman | Plenty | Splash>(
       req.chain,
       req.network,
       req.connector
@@ -136,6 +141,8 @@ export async function trade(req: TradeRequest): Promise<TradeResponse> {
     return uniswapTrade(<Ethereumish>chain, connector, req);
   } else if (connector instanceof Tinyman) {
     return tinymanTrade(chain as unknown as Algorand, connector, req);
+  } else if (connector instanceof Splash) {
+    return connector.executeTrade(req);
   } else {
     return refTrade(<Nearish>chain, connector as RefAMMish, req);
   }
@@ -227,7 +234,7 @@ export async function estimateGas(
   if (chain instanceof Osmosis){
     return chain.controller.estimateGas(chain as unknown as Osmosis);
   }
-  
+
   const connector: Uniswapish | RefAMMish | Tinyman | Plenty =
     await getConnector<Uniswapish | RefAMMish | Plenty>(
       req.chain,

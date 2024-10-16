@@ -6,7 +6,8 @@ export interface PollResponse {}
 
 export interface PoolRequest {
   network: string;
-  poolId: string;
+  x: string;
+  y: string
 }
 
 export interface PoolResponse {
@@ -34,8 +35,8 @@ export interface BalancesRequest {
 export interface CardanoToken {
     token: Currency,
     policyId: string,
-    decimals: number, 
-    name: string, 
+    decimals: number,
+    name: string,
     symbol: string
     splashSupport?: boolean
 }
@@ -57,8 +58,8 @@ export interface CardanoConnectedInstance {
 }
 
 export interface TxRequestParams {
-  limit?: number, 
-  offset? : string, 
+  limit?: number,
+  offset? : string,
   sortDirection?: UtxosByAddressOrderEnum,
   asset? : string
 }

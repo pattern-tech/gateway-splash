@@ -1,24 +1,24 @@
-import { Avalanche } from '../chains/avalanche/avalanche';
-import { Celo } from '../chains/celo/celo';
-import { Cronos } from '../chains/cronos/cronos';
-import { Ethereum } from '../chains/ethereum/ethereum';
-import { BinanceSmartChain } from '../chains/binance-smart-chain/binance-smart-chain';
-import { Harmony } from '../chains/harmony/harmony';
-import { Polygon } from '../chains/polygon/polygon';
-import { Xdc } from '../chains/xdc/xdc';
-import { Tezos } from '../chains/tezos/tezos';
-import { Telos } from '../chains/telos/telos';
-import { Osmosis } from '../chains/osmosis/osmosis';
-import { XRPL, XRPLish } from '../chains/xrpl/xrpl';
-import { MadMeerkat } from '../connectors/mad_meerkat/mad_meerkat';
-import { Openocean } from '../connectors/openocean/openocean';
-import { Pangolin } from '../connectors/pangolin/pangolin';
-import { Perp } from '../connectors/perp/perp';
-import { Quickswap } from '../connectors/quickswap/quickswap';
-import { PancakeSwap } from '../connectors/pancakeswap/pancakeswap';
-import { Uniswap } from '../connectors/uniswap/uniswap';
-import { UniswapLP } from '../connectors/uniswap/uniswap.lp';
-import { VVSConnector } from '../connectors/vvs/vvs';
+import {Avalanche} from '../chains/avalanche/avalanche';
+import {Celo} from '../chains/celo/celo';
+import {Cronos} from '../chains/cronos/cronos';
+import {Ethereum} from '../chains/ethereum/ethereum';
+import {BinanceSmartChain} from '../chains/binance-smart-chain/binance-smart-chain';
+import {Harmony} from '../chains/harmony/harmony';
+import {Polygon} from '../chains/polygon/polygon';
+import {Xdc} from '../chains/xdc/xdc';
+import {Tezos} from '../chains/tezos/tezos';
+import {Telos} from '../chains/telos/telos';
+import {Osmosis} from '../chains/osmosis/osmosis';
+import {XRPL, XRPLish} from '../chains/xrpl/xrpl';
+import {MadMeerkat} from '../connectors/mad_meerkat/mad_meerkat';
+import {Openocean} from '../connectors/openocean/openocean';
+import {Pangolin} from '../connectors/pangolin/pangolin';
+import {Perp} from '../connectors/perp/perp';
+import {Quickswap} from '../connectors/quickswap/quickswap';
+import {PancakeSwap} from '../connectors/pancakeswap/pancakeswap';
+import {Uniswap} from '../connectors/uniswap/uniswap';
+import {UniswapLP} from '../connectors/uniswap/uniswap.lp';
+import {VVSConnector} from '../connectors/vvs/vvs';
 import {
   CLOBish,
   Ethereumish,
@@ -30,23 +30,25 @@ import {
   Xdcish,
   Tezosish,
 } from './common-interfaces';
-import { Traderjoe } from '../connectors/traderjoe/traderjoe';
-import { Sushiswap } from '../connectors/sushiswap/sushiswap';
-import { Near } from '../chains/near/near';
-import { Ref } from '../connectors/ref/ref';
-import { Xsswap } from '../connectors/xsswap/xsswap';
-import { DexalotCLOB } from '../connectors/dexalot/dexalot';
-import { Algorand } from '../chains/algorand/algorand';
-import { Cosmos } from '../chains/cosmos/cosmos';
-import { Tinyman } from '../connectors/tinyman/tinyman';
-import { Plenty } from '../connectors/plenty/plenty';
-import { Curve } from '../connectors/curve/curve';
-import { Kujira } from '../chains/kujira/kujira';
-import { KujiraCLOB } from '../connectors/kujira/kujira';
-import { PancakeswapLP } from '../connectors/pancakeswap/pancakeswap.lp';
-import { XRPLCLOB } from '../connectors/xrpl/xrpl';
-import { Carbonamm } from '../connectors/carbon/carbonAMM';
-import { Balancer } from '../connectors/balancer/balancer';
+import {Traderjoe} from '../connectors/traderjoe/traderjoe';
+import {Sushiswap} from '../connectors/sushiswap/sushiswap';
+import {Near} from '../chains/near/near';
+import {Ref} from '../connectors/ref/ref';
+import {Xsswap} from '../connectors/xsswap/xsswap';
+import {DexalotCLOB} from '../connectors/dexalot/dexalot';
+import {Algorand} from '../chains/algorand/algorand';
+import {Cosmos} from '../chains/cosmos/cosmos';
+import {Tinyman} from '../connectors/tinyman/tinyman';
+import {Plenty} from '../connectors/plenty/plenty';
+import {Curve} from '../connectors/curve/curve';
+import {Kujira} from '../chains/kujira/kujira';
+import {KujiraCLOB} from '../connectors/kujira/kujira';
+import {PancakeswapLP} from '../connectors/pancakeswap/pancakeswap.lp';
+import {XRPLCLOB} from '../connectors/xrpl/xrpl';
+import {Carbonamm} from '../connectors/carbon/carbonAMM';
+import {Balancer} from '../connectors/balancer/balancer';
+import {Cardano} from "../chains/cardano/cardano";
+import {Splash} from "../connectors/splash/splash";
 
 export type ChainUnion =
   | Algorand
@@ -57,7 +59,8 @@ export type ChainUnion =
   | Tezosish
   | XRPLish
   | Kujira
-  | Osmosis;
+  | Osmosis
+  | Cardano;
 
 export type Chain<T> = T extends Algorand
   ? Algorand
@@ -77,7 +80,10 @@ export type Chain<T> = T extends Algorand
                 ? KujiraCLOB
                 : T extends Osmosis
                   ? Osmosis
-                  : never;
+                  : T extends Cardano
+                    ? Cardano
+                    : never;
+;
 
 export class UnsupportedChainException extends Error {
   constructor(message?: string) {
@@ -146,6 +152,8 @@ export async function getChainInstance(
     connection = Kujira.getInstance(network);
   } else if (chain === 'telos') {
     connection = Telos.getInstance(network);
+  } else if (chain === 'cardano') {
+    connection = Cardano.getInstance(network);
   } else {
     connection = undefined;
   }
@@ -164,6 +172,7 @@ export type ConnectorUnion =
   | XRPLCLOB
   | Curve
   | KujiraCLOB
+  | Splash
 
 export type Connector<T> = T extends Uniswapish
   ? Uniswapish
@@ -183,6 +192,8 @@ export type Connector<T> = T extends Uniswapish
                 ? XRPLCLOB
                 : T extends KujiraCLOB
                   ? KujiraCLOB
+                  : T extends Splash
+                    ? Splash
                     : never;
 
 export async function getConnector<T>(
@@ -237,6 +248,9 @@ export async function getConnector<T>(
     connectorInstance = Tinyman.getInstance(network);
   } else if (connector === 'plenty') {
     connectorInstance = Plenty.getInstance(network);
+  }
+  else if (chain === 'cardano' && connector === 'splash') {
+      connectorInstance = Splash.getInstance(chain, network);
   } else {
     throw new Error('unsupported chain or connector');
   }

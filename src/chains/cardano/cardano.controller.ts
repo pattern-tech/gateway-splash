@@ -2,8 +2,7 @@ import {
   BalancesRequest,
   PollRequest,
   PollResponse,
-  PoolRequest,
-  PoolResponse, TokenResponse,
+  TokenResponse,
 } from './interfaces/cardano.interface';
 import { BalanceResponse, TokensRequest } from '../../network/network.requests';
 import { AllowancesRequest, AllowancesResponse } from '../chain.requests';
@@ -11,13 +10,6 @@ import {Cardano} from "./cardano";
 // import {cancel} from "../chain.controller";
 
 export class CardanoController {
-  static async pool(cardano: Cardano, req: PoolRequest): Promise<PoolResponse> {
-    if (!cardano.ready()) {
-      await cardano.init();
-    }
-
-    return cardano.getPool(req.poolId);
-  }
 
   static async poll(cardano: Cardano, req: PollRequest): Promise<PollResponse> {
     if (!cardano.ready()) {
@@ -38,10 +30,10 @@ export class CardanoController {
       };
     return {
       ...tx,
-      currentBlock: Number(tx?.inclusionHeight),
-      txBlock: Number(tx?.inclusionHeight),
-      txHash: tx?.id,
-      fee: 0,
+      currentBlock: Number(tx?.block_height),
+      txBlock: Number(tx?.block_height),
+      txHash: tx?.tx_hash,
+      fee: tx.fee,
     };
   }
 

@@ -62,7 +62,7 @@ export class Cardano {
   public minFee: number;
   public controller: CardanoController;
   private utxosLimit: number;
-  private timeout: number;
+  // private timeout: number;
   private defaultSlippage: TradeSlippage;
 
   /**
@@ -92,7 +92,7 @@ export class Cardano {
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
-    this.timeout = config.network.timeOut;
+    // this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
   }
@@ -115,7 +115,7 @@ export class Cardano {
    * @static
    */
   public static getInstance(
-    network: MaestroSupportedNetworks,
+    network: string,
     name?: string,
   ): Cardano {
     const instanceName =

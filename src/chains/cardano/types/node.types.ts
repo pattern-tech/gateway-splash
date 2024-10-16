@@ -1,4 +1,3 @@
-import { Utxo } from '@maestro-org/typescript-sdk';
 import { Dictionary, Operation } from '@splashprotocol/sdk';
 
 export type SplashClientType = Dictionary<Operation<any>>;
