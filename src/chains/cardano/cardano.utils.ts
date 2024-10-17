@@ -49,6 +49,7 @@ export function getAssetsFromPools(
   // adding ada token as the first token
   let ada = Currency.ada(BigInt(0));
   ada.asset.nameBase16 = '414441';
+  ada.asset.nameCbor = '40';
   tokens['ADA'] = {
     token: ada,
     policyId: '',
@@ -82,7 +83,7 @@ export function getAssetsFromPools(
         pool.x.asset.name !== '' &&
         !String(pool.nft.nameBase16).includes('414441')
       ) {
-        tokens[stringToHex(pool.x.asset.name)] = {
+        tokens[pool.x.asset.name.toUpperCase()] = {
           token: pool.x,
           policyId: pool.x.asset.policyId,
           decimals: 1,
@@ -96,7 +97,7 @@ export function getAssetsFromPools(
         pool.y.asset.name !== '' &&
         !String(pool.nft.nameBase16).includes('414441')
       ) {
-        tokens[stringToHex(pool.y.asset.name)] = {
+        tokens[pool.y.asset.name.toUpperCase()] = {
           token: pool.y,
           policyId: pool.y.asset.policyId,
           decimals: 1,
@@ -138,58 +139,78 @@ export async function getTokenMetadata(
 }
 
 /**
- * Leverages the backoff technique and fetches the metadata for the given token list
- * @dev Not all given tokens are guaranteed to have a metadata.
- * @param {CardanoToken[]} tokens - The array of the cardanoTokens
- * @param {MaestroClient} maestroClient - The maestro node object
+ * Fetches metadata for tokens in batches using Promise.all
+ * @param {CardanoToken[]} tokens - The array of CardanoTokens
+ * @param {MaestroClient} maestroClient - The Maestro node object
  * @returns {Promise<LRUCache<string, TokenRegistryMetadata>>} The fetched metadata
  */
 export async function getTokenMetadataWithBackoff(
   tokens: CardanoToken[],
   maestroClient: MaestroClient,
 ): Promise<LRUCache<string, TokenRegistryMetadata>> {
-  let config = getCardanoConfig('Mainnet');
-
-  let metadata: LRUCache<string, TokenRegistryMetadata> = new LRUCache<
-    string,
-    TokenRegistryMetadata
-  >({
+  const config = getCardanoConfig('Mainnet');
+  const metadata = new LRUCache<string, TokenRegistryMetadata>({
     max: Number(config.network.maxLRUCacheInstances),
   });
 
-  for (const token of tokens) {
-    try {
-      if (metadata.has(token.name.toUpperCase())) {
-        let _metadata = (
-          await maestroClient.assets.assetInfo(
-            `${token.policyId}${stringToHex(token.name)}`,
-          )
-        ).data.token_registry_metadata;
+  const batchSize = 50;
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
 
-        metadata.set(
-          token.name.toUpperCase(),
-          _metadata || {
-            decimals: 1, // results to show the raw number instead of zero
-            description: '',
-            logo: '',
-            name: token.name.toUpperCase(),
-            ticker: token.name.toUpperCase(),
-            url: '',
-          },
-        );
-      }
+  const fetchMetadata = async (token: CardanoToken): Promise<void> => {
+    if (
+      metadata.has(token.name.toUpperCase()) ||
+      ['ADA', 'LOVELACE'].includes(token.name.toUpperCase())
+    ) {
+      return;
+    }
+
+    try {
+      const assetInfo = await maestroClient.assets.assetInfo(
+        `${token.policyId}${token.token.asset.nameBase16}`,
+      );
+      const tokenMetadata = assetInfo.data.token_registry_metadata || {
+        decimals: 0,
+        description: '',
+        logo: '',
+        name: token.name.toUpperCase(),
+        ticker: token.name.toUpperCase(),
+        url: '',
+      };
+      metadata.set(token.name.toUpperCase(), tokenMetadata);
     } catch (error) {
-      // resting if rate limit reached (429)
-      // todo => more accurate matching
-      if (String(error).includes('429')) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (String(error).includes('code 429')) {
+        await delay(1000);
+        return fetchMetadata(token);
+      } else if (String(error).includes('code 404')) {
+        metadata.set(token.name.toUpperCase(), {
+          decimals: 1,
+          description: '',
+          logo: '',
+          name: token.name.toUpperCase(),
+          ticker: token.name.toUpperCase(),
+          url: '',
+        });
+      } else {
+        console.error(`Error fetching metadata for ${token.name}:`, error);
       }
-      throw error;
+    }
+  };
+
+  for (let i = 0; i < tokens.length; i += batchSize) {
+    const batch = tokens.slice(i, i + batchSize);
+    await Promise.all(batch.map((token) => fetchMetadata(token)));
+    console.log(`Processed ${i + batch.length} out of ${tokens.length} tokens`);
+
+    // Add a small delay between batches to avoid overwhelming the API
+    if (i + batchSize < tokens.length) {
+      await delay(500);
     }
   }
 
   return metadata;
 }
+
 
 export async function getSplashPools(
   splashClient: Splash<SplashClientType>,

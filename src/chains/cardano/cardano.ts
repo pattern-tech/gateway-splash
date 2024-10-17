@@ -12,6 +12,7 @@ dotenv.config();
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
+  Asset,
   MaestroClient,
   MaestroSupportedNetworks,
   TokenRegistryMetadata,
@@ -105,19 +106,20 @@ export class Cardano {
     return;
   }
 
-  private async loadTokenMetadata() {
+  private async loadTokenMetadata(): Promise<void> {
     // requires `loadAssets` and and `loadPools` to be called before
     if (!this._assetMap) {
       throw new Error('try to re-init the object !');
     }
 
     // loading the metadata with backoff
-    console.log('fetching the token metadata, this can take a while');
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
       Object.values(this._assetMap),
       this._node,
     );
+    return;
   }
+
   /**
    * Gets or creates an Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -147,7 +149,6 @@ export class Cardano {
     let cardanoInstance = Cardano._instances.get(instanceName);
 
     if (cardanoInstance) {
-      console.log(`Returning existing instance: ${instanceName}`);
       return cardanoInstance;
     }
 
@@ -251,12 +252,11 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     let utxos: Array<UtxoWithSlot> = [];
-
     utxos = (
       await this._node.addresses.utxosByAddress(address, {
         count: params?.limit || this.utxosLimit,
         order: params?.sortDirection || 'desc',
-        cursor: params?.offset || '0',
+        cursor: params?.offset || null,
         asset: params?.asset || null,
       })
     ).data;
@@ -350,41 +350,52 @@ export class Cardano {
     accountAddress: string,
     assetName: string,
   ): Promise<string> {
-    if (['LOVELACE', 'ADA'].includes(assetName.toUpperCase())) {
-      throw new Error('use `getAdaBalance` function !');
-    }
-
-    const CardanoToken = this._assetMap[assetName];
-    if (!CardanoToken) {
-      throw new Error(`Asset '${assetName}' not found in ${this._chain} Node!`);
-    }
-
-    // fetching the fresh metadata
-    let tokenMetadata = await getTokenMetadata(
-      CardanoToken.policyId,
-      CardanoToken.name,
-      this._node,
-    );
-
-    [CardanoToken.decimals, CardanoToken.symbol] = tokenMetadata
-      ? [tokenMetadata.decimals, tokenMetadata.ticker]
-      : [1, CardanoToken.name];
-
     try {
-      const utxos = await this.getAddressUtxos(accountAddress, {
-        asset: `${CardanoToken.policyId}${stringToHex(CardanoToken.name)}`,
-      });
+      if (['LOVELACE', 'ADA'].includes(assetName.toUpperCase())) {
+        throw new Error('use `getAdaBalance` function !');
+      }
 
-      const balance = utxos.reduce(
-        (total, utxo) =>
-          utxo.assets.reduce(
-            (utxoTotal, asset) => utxoTotal.plus(asset.amount),
-            total,
-          ),
-        BigNumber(0),
+      const cardanoToken = this.findToken(assetName);
+
+      if (!cardanoToken) {
+        throw new Error(
+          `Asset '${assetName}' not found in ${this._chain} Node!`,
+        );
+      }
+
+      // fetching the fresh metadata
+      let tokenMetadata = await getTokenMetadata(
+        cardanoToken.policyId,
+        cardanoToken.name,
+        this._node,
       );
 
-      return this.fromRaw(balance, CardanoToken.decimals);
+      [cardanoToken.decimals, cardanoToken.symbol] = tokenMetadata
+        ? [tokenMetadata.decimals, tokenMetadata.ticker]
+        : [0, cardanoToken.name];
+
+      const utxos = await this.getAddressUtxos(accountAddress, {
+        asset: `${cardanoToken.policyId}${stringToHex(cardanoToken.token.asset.name)}`,
+      });
+
+      let balance: Asset[] = [];
+      for (const utxo of utxos) {
+        for (const asset of utxo.assets) {
+          if (
+            asset.unit ==
+            `${cardanoToken.policyId}${stringToHex(cardanoToken.token.asset.name)}`
+          ) {
+            balance.push(asset);
+          }
+        }
+      }
+
+      return this.fromRaw(
+        BigNumber(
+          balance.reduce((acc, obj) => acc + parseFloat(obj.amount), 0),
+        ),
+        cardanoToken.decimals,
+      );
     } catch (error) {
       throw new Error(
         `Error fetching account assets from ${this._chain} Node: ${error}`,
@@ -402,8 +413,14 @@ export class Cardano {
       return this.fromRaw(
         BigNumber(
           String(
-            (await this._node.addresses.addressBalance(accountAddress))
-              .lovelace,
+            (
+              (await this._node.addresses.addressBalance(
+                String(
+                  (await this._node.addresses.decodeAddress(accountAddress))
+                    .payment_cred?.bech32,
+                ),
+              )) as any
+            ).data.lovelace,
           ),
         ),
         6,
@@ -430,7 +447,7 @@ export class Cardano {
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
         const tokenDecimals = isAda
           ? 6
-          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 1;
+          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
 
         assets[tokenName] = BigNumber(
           this.fromRaw(
@@ -799,9 +816,7 @@ export class Cardano {
    * @returns {CardanoToken}
    */
   private findToken(symbolOrName: string): CardanoToken | undefined {
-    const token = this.storedAssetList.find((asset) =>
-      [asset.symbol, asset.name].includes(symbolOrName.toUpperCase()),
-    );
+    const token = this._assetMap[symbolOrName];
     return token;
   }
 
