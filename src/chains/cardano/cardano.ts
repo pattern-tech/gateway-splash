@@ -452,7 +452,7 @@ export class Cardano {
    * @private
    */
   private async loadAssets() {
-    this._assetMap = await getAssetsFromPools(this._node, this._splashPools);
+    this._assetMap = getAssetsFromPools(this._splashPools);
   }
 
   /**

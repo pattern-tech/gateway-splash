@@ -41,10 +41,9 @@ export function getSplashInstance(
   });
 }
 
-export async function getAssetsFromPools(
-  maestroClient: MaestroClient,
+export function getAssetsFromPools(
   splashPools: Record<string, SplashPool[]>,
-): Promise<Record<string, CardanoToken>> {
+): Record<string, CardanoToken> {
   let tokens: Record<string, CardanoToken> = {};
 
   // adding ada token as the first token
@@ -77,68 +76,37 @@ export async function getAssetsFromPools(
    * - '414441' (hex for 'ADA')
    */
 
-  const tasks: Promise<void>[] = [];
-
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
-      // Task for token X
       if (
         pool.x.asset.name !== '' &&
         !String(pool.nft.nameBase16).includes('414441')
       ) {
-        const xTask = getTokenMetadata(
-          pool.x.asset.policyId,
-          pool.x.asset.name,
-          maestroClient,
-        )
-          .then((metadata) => {
-            tokens[stringToHex(pool.x.asset.name)] = {
-              token: pool.x,
-              policyId: pool.x.asset.policyId,
-              decimals: metadata?.decimals ?? 6,
-              symbol: metadata?.ticker ?? pool.x.asset.name.toUpperCase(),
-              name: pool.x.asset.name.toUpperCase(),
-              splashSupport: true,
-            };
-          })
-          .catch((error) =>
-            console.error(`Error fetching metadata for token X:`, error),
-          );
-
-        tasks.push(xTask);
+        tokens[stringToHex(pool.x.asset.name)] = {
+          token: pool.x,
+          policyId: pool.x.asset.policyId,
+          decimals: 1,
+          symbol: pool.x.asset.name.toUpperCase(),
+          name: pool.x.asset.name.toUpperCase(),
+          splashSupport: true,
+        };
       }
 
-      // Task for token Y
       if (
         pool.y.asset.name !== '' &&
         !String(pool.nft.nameBase16).includes('414441')
       ) {
-        const yTask = getTokenMetadata(
-          pool.y.asset.policyId,
-          pool.y.asset.name,
-          maestroClient,
-        )
-          .then((metadata) => {
-            tokens[stringToHex(pool.y.asset.name)] = {
-              token: pool.y,
-              policyId: pool.y.asset.policyId,
-              decimals: metadata?.decimals ?? 6,
-              symbol: metadata?.ticker ?? pool.y.asset.name.toUpperCase(),
-              name: pool.y.asset.name.toUpperCase(),
-              splashSupport: true,
-            };
-          })
-          .catch((error) =>
-            console.error(`Error fetching metadata for token Y:`, error),
-          );
-
-        tasks.push(yTask);
+        tokens[stringToHex(pool.y.asset.name)] = {
+          token: pool.y,
+          policyId: pool.y.asset.policyId,
+          decimals: 1,
+          symbol: pool.y.asset.name.toUpperCase(),
+          name: pool.y.asset.name.toUpperCase(),
+          splashSupport: true,
+        };
       }
     });
   });
-
-  // Await all metadata fetching tasks in parallel
-  await Promise.all(tasks);
 
   return tokens;
 }
