@@ -14,9 +14,9 @@ import {
   AddressTransaction,
   MaestroClient,
   MaestroSupportedNetworks,
+  TokenRegistryMetadata,
   TransactionInfo,
   TxManagerState,
-  // Utxo,
   UtxoWithSlot,
 } from '@maestro-org/typescript-sdk';
 import fse from 'fs-extra';
@@ -37,6 +37,8 @@ import {
   getNftBase16Names,
   getSplashInstance,
   getSplashPools,
+  getTokenMetadata,
+  getTokenMetadataWithBackoff,
 } from './cardano.utils';
 import { SplashPool } from './types/cardano.types';
 import { SplashClientType, TradeSlippage } from './types/node.types';
@@ -53,6 +55,7 @@ import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 
 export class Cardano {
   private static _instances: LRUCache<string, Cardano>;
+  private static _tokenMetadata: LRUCache<string, TokenRegistryMetadata>;
   public _assetMap: Record<string, CardanoToken> = {};
   private _chain: string = 'cardano';
   private _network: MaestroSupportedNetworks;
@@ -63,7 +66,6 @@ export class Cardano {
   public minFee: number;
   public controller: CardanoController;
   private utxosLimit: number;
-  private timeout: number;
   private defaultSlippage: TradeSlippage;
 
   /**
@@ -84,23 +86,37 @@ export class Cardano {
     this._dex = getSplashInstance(network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
-    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos to fetch.
-    this.timeout = config.network.timeOut;
+    this.utxosLimit = Number(config.network.utxosLimit); // maximum number of utxos to fetch.
+    // this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
   }
+
+
 
   /**
    * Asynchronously Initializes the Cardano instance
    * @returns {Promise<void>}
    */
   public async init(): Promise<void> {
-    await this.loadAssets();
     await this.loadPools();
+    await this.loadAssets();
+    // fetching and caching the tokens metadata if not cached yet
+    await this.loadTokenMetadata();
     this._ready = true;
     return;
   }
 
+  private async loadTokenMetadata(){
+    // requires `loadAssets` and and `loadPools` to be called before
+    if (!this._assetMap){
+      throw new Error("try to re-init the object !")
+    }
+
+    // loading the metadata with backoff
+    console.log("fetching the token metadata, this can take a while")
+    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(Object.values(this._assetMap), this._node);
+  }
   /**
    * Gets or creates an Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -118,20 +134,23 @@ export class Cardano {
         [Date.now(), String(network)] as const,
       ).slice(0, 16);
 
-    let cardanoInstance: Cardano | undefined =
-      Cardano._instances.get(instanceName);
+    // Initialize _instances if it doesn't exist
+    if (!Cardano._instances) {
+      const config = getCardanoConfig(network);
+      Cardano._instances = new LRUCache<string, Cardano>({
+        max: Number(config.network.maxLRUCacheInstances),
+      });
+    }
+
+    // Try to get existing instance
+    let cardanoInstance = Cardano._instances.get(instanceName);
 
     if (cardanoInstance) {
+      console.log(`Returning existing instance: ${instanceName}`);
       return cardanoInstance;
     }
 
     const config = getCardanoConfig(network);
-
-    if (!Cardano._instances) {
-      Cardano._instances = new LRUCache<string, Cardano>({
-        max: config.network.maxLRUCacheInstances,
-      });
-    }
 
     Cardano._instances.set(instanceName, new Cardano(network, config, 1, {}));
 
@@ -339,6 +358,17 @@ export class Cardano {
       throw new Error(`Asset '${assetName}' not found in ${this._chain} Node!`);
     }
 
+    // lazy loading the token metadata
+    let tokenMetadata = await getTokenMetadata(
+      CardanoToken.policyId,
+      CardanoToken.name,
+      this._node,
+    );
+
+    [CardanoToken.decimals, CardanoToken.symbol] = tokenMetadata
+      ? [tokenMetadata.decimals, tokenMetadata.ticker]
+      : [6, CardanoToken.name];
+
     try {
       const utxos = await this.getAddressUtxos(accountAddress, {
         asset: `${CardanoToken.policyId}${stringToHex(CardanoToken.name)}`,
@@ -364,7 +394,7 @@ export class Cardano {
   /**
    * Gets the balance of ADA
    * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
-   * @returns {Prmoise<string>}
+   * @returns {Promise<string>}
    */
   public async getAdaBalance(accountAddress: string): Promise<string> {
     try {
@@ -457,6 +487,26 @@ export class Cardano {
       baseToken,
       quoteToken,
     );
+
+    let baseMetadata = await getTokenMetadata(
+      baseCardanoToken.policyId,
+      baseCardanoToken.name,
+      this._node,
+    );
+    let quoteMetadata = await getTokenMetadata(
+      quoteCardanoToken.policyId,
+      quoteCardanoToken.name,
+      this._node,
+    );
+
+    // lazy loading the token metadata
+    [baseCardanoToken.decimals, baseCardanoToken.symbol] = baseMetadata
+      ? [baseMetadata.decimals, baseMetadata.ticker]
+      : [6, baseCardanoToken.name];
+
+    [quoteCardanoToken.decimals, quoteCardanoToken.symbol] = quoteMetadata
+      ? [quoteMetadata.decimals, quoteMetadata.ticker]
+      : [6, quoteCardanoToken.name];
 
     const [inputToken, outputToken] = this.createTokens(
       baseCardanoToken,
@@ -682,6 +732,27 @@ export class Cardano {
       baseToken.toUpperCase(),
       quoteToken.toUpperCase(),
     );
+
+    let baseMetadata = await getTokenMetadata(
+      realBaseToken.policyId,
+      realBaseToken.name,
+      this._node,
+    );
+    let quoteMetadata = await getTokenMetadata(
+      realQuoteToken.policyId,
+      realQuoteToken.name,
+      this._node,
+    );
+
+    // lazy loading the token metadata
+    [realBaseToken.decimals, realBaseToken.symbol] = baseMetadata
+      ? [baseMetadata.decimals, baseMetadata.ticker]
+      : [6, realBaseToken.name];
+
+    [realQuoteToken.decimals, realQuoteToken.symbol] = quoteMetadata
+      ? [quoteMetadata.decimals, quoteMetadata.ticker]
+      : [6, realQuoteToken.name];
+
     let nftBase16Name = getNftBase16Names(
       realBaseToken.token.asset.nameBase16,
       realQuoteToken.token.asset.nameBase16,

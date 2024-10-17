@@ -52,6 +52,11 @@ configurations:
     configurationPath: sushiswap.yml
     schemaPath: sushiswap-schema.json
 
+  $namespace cardano:
+    configurationPath: cardano.yml
+    schemaPath: cardano-schema.json
+
+  
   $namespace tinyman:
     configurationPath: tinyman.yml
     schemaPath: tinyman-schema.json

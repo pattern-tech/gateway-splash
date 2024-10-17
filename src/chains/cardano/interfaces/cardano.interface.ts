@@ -43,7 +43,7 @@ export interface CardanoToken {
 export interface CardanoNetworkConfig {
   name: string;
   nodeURL: string;
-  timeOut: number;
+  // timeOut: number;
   maxLRUCacheInstances: number;
   utxosLimit: number;
   defaultSlippage: string;

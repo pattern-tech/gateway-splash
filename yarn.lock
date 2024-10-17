@@ -1163,6 +1163,11 @@
   resolved "https://registry.npmjs.org/@dcspark/cardano-multiplatform-lib-browser/-/cardano-multiplatform-lib-browser-6.0.1.tgz"
   integrity sha512-dka+D1cwoV5r+FcDP3fAaQ6EYG8ycOcIxC2UQrk/D2U3fglE9LiglxI4HKrDO4+t2OLsITzgb9U4ilPTUD4xMQ==
 
+"@dcspark/cardano-multiplatform-lib-nodejs@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.npmjs.org/@dcspark/cardano-multiplatform-lib-nodejs/-/cardano-multiplatform-lib-nodejs-6.0.1.tgz"
+  integrity sha512-x2+Ic9O899DuOh7dZarEMa6GfMFht83ft5fEoywoAzutvC8MR7cYg3VWwLbMyPoFt+6d+H1vBW4RWWx3s27FQw==
+
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.4.0"
   resolved "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.4.0.tgz"
@@ -7589,6 +7594,11 @@ dotenv@^14.2.0:
   version "14.3.2"
   resolved "https://registry.npmjs.org/dotenv/-/dotenv-14.3.2.tgz"
   integrity sha512-vwEppIphpFdvaMCaHfCEv9IgwcxMljMw2TnAQBB4VWPvzXQLTb82jwmdOKzlEVUL3gNFT4l4TPKO+Bn+sqcrVQ==
+
+dotenv@^16.4.5:
+  version "16.4.5"
+  resolved "https://registry.npmjs.org/dotenv/-/dotenv-16.4.5.tgz"
+  integrity sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==
 
 double-ended-queue@2.1.0-0:
   version "2.1.0-0"

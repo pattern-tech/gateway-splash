@@ -18,3 +18,7 @@ package-lock.json
 
 # Yarn
 yarn-error.log
+
+# Test
+.env
+src/chain/cardano/test_index.ts

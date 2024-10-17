@@ -15,6 +15,10 @@ import {
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
 import { poolNftNames, SplashClientType } from './types/node.types';
+import dotenv from 'dotenv';
+import LRUCache from 'lru-cache';
+import { getCardanoConfig } from './cardano.config';
+dotenv.config({ path: '../../../.env' });
 
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
@@ -72,49 +76,69 @@ export async function getAssetsFromPools(
    * - '4e4654' (hex for 'NFT')
    * - '414441' (hex for 'ADA')
    */
-  Object.values(splashPools).forEach((pools) =>
-    pools.map(async (pool) => {
-      for (let i = 0; 1 < 2; i++) {
-        if (
-          pool.x.asset.name != '' ||
-          !String(pool.nft.nameBase16).includes('414441')
-        ) {
-          let metadata = await getTokenMetadata(
-            pool.x.asset.policyId,
-            pool.x.asset.name, // will be converted to hex, not case sensitive
-            maestroClient,
-          );
-          tokens[stringToHex(pool.x.asset.name)] = {
-            token: pool.x,
-            policyId: pool.x.asset.policyId,
-            decimals: metadata?.decimals ?? 6,
-            symbol: metadata?.ticker ?? pool.x.asset.name.toUpperCase(),
-            name: pool.x.asset.name.toUpperCase(),
 
-            splashSupport: true,
-          };
-        }
-        if (
-          pool.y.asset.name != '' ||
-          !String(pool.nft.nameBase16).includes('414441')
-        ) {
-          let metadata = await getTokenMetadata(
-            pool.y.asset.policyId,
-            pool.y.asset.name, // will be converted to hex, not case sensitive
-            maestroClient,
+  const tasks: Promise<void>[] = [];
+
+  Object.values(splashPools).forEach((pools) => {
+    pools.forEach((pool) => {
+      // Task for token X
+      if (
+        pool.x.asset.name !== '' &&
+        !String(pool.nft.nameBase16).includes('414441')
+      ) {
+        const xTask = getTokenMetadata(
+          pool.x.asset.policyId,
+          pool.x.asset.name,
+          maestroClient,
+        )
+          .then((metadata) => {
+            tokens[stringToHex(pool.x.asset.name)] = {
+              token: pool.x,
+              policyId: pool.x.asset.policyId,
+              decimals: metadata?.decimals ?? 6,
+              symbol: metadata?.ticker ?? pool.x.asset.name.toUpperCase(),
+              name: pool.x.asset.name.toUpperCase(),
+              splashSupport: true,
+            };
+          })
+          .catch((error) =>
+            console.error(`Error fetching metadata for token X:`, error),
           );
-          tokens[stringToHex(pool.y.asset.name)] = {
-            token: pool.y,
-            policyId: pool.y.asset.policyId,
-            decimals: metadata?.decimals ?? 6,
-            symbol: metadata?.ticker ?? pool.y.asset.name.toUpperCase(),
-            name: pool.y.asset.name.toUpperCase(),
-            splashSupport: true,
-          };
-        }
+
+        tasks.push(xTask);
       }
-    }),
-  );
+
+      // Task for token Y
+      if (
+        pool.y.asset.name !== '' &&
+        !String(pool.nft.nameBase16).includes('414441')
+      ) {
+        const yTask = getTokenMetadata(
+          pool.y.asset.policyId,
+          pool.y.asset.name,
+          maestroClient,
+        )
+          .then((metadata) => {
+            tokens[stringToHex(pool.y.asset.name)] = {
+              token: pool.y,
+              policyId: pool.y.asset.policyId,
+              decimals: metadata?.decimals ?? 6,
+              symbol: metadata?.ticker ?? pool.y.asset.name.toUpperCase(),
+              name: pool.y.asset.name.toUpperCase(),
+              splashSupport: true,
+            };
+          })
+          .catch((error) =>
+            console.error(`Error fetching metadata for token Y:`, error),
+          );
+
+        tasks.push(yTask);
+      }
+    });
+  });
+
+  // Await all metadata fetching tasks in parallel
+  await Promise.all(tasks);
 
   return tokens;
 }
@@ -128,14 +152,75 @@ export function getNftBase16Names(
     quoteToBase: quoteName16 + '5f' + baseName16 + '4e4654',
   };
 }
-async function getTokenMetadata(
+
+export async function getTokenMetadata(
   policyId: string,
   name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
-  return (
-    await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
-  ).data.token_registry_metadata;
+  try {
+    return (
+      await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
+    ).data.token_registry_metadata;
+  } catch (error) {
+    // 429
+    // 403
+    return undefined;
+  }
+}
+
+/**
+ * Leverages the backoff technique and fetches the metadata for the given token list
+ * @dev Not all given tokens are guaranteed to have a metadata.
+ * @param {CardanoToken[]} tokens - The array of the cardanoTokens
+ * @param {MaestroClient} maestroClient - The maestro node object
+ * @returns {Promise<LRUCache<string, TokenRegistryMetadata>>} The fetched metadata
+ */
+export async function getTokenMetadataWithBackoff(
+  tokens: CardanoToken[],
+  maestroClient: MaestroClient,
+): Promise<LRUCache<string, TokenRegistryMetadata>> {
+  let config = getCardanoConfig('Mainnet');
+
+  let metadata: LRUCache<string, TokenRegistryMetadata> = new LRUCache<
+    string,
+    TokenRegistryMetadata
+  >({
+    max: Number(config.network.maxLRUCacheInstances),
+  });
+
+  for (const token of tokens) {
+    try {
+      if (metadata.has(token.name.toUpperCase())) {
+        let _metadata = (
+          await maestroClient.assets.assetInfo(
+            `${token.policyId}${stringToHex(token.name)}`,
+          )
+        ).data.token_registry_metadata;
+
+        metadata.set(
+          token.name.toUpperCase(),
+          _metadata || {
+            decimals: 0,
+            description: '',
+            logo: '',
+            name: '',
+            ticker: '',
+            url: '',
+          },
+        );
+      }
+    } catch (error) {
+      // resting if rate limit reached (429)
+      // todo => more accurate matching
+      if (String(error).includes('429')) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      throw error;
+    }
+  }
+
+  return metadata;
 }
 
 export async function getSplashPools(
@@ -149,11 +234,11 @@ export async function getSplashPools(
 
   let poolMap: Record<string, SplashPool[]> = {};
 
-  verifiedPools.map(async (pool) => {
-    // saving the pool id into pools
+  verifiedPools.forEach((pool) => {
+    poolMap[String(pool.nft.nameBase16)] =
+      poolMap[String(pool.nft.nameBase16)] || [];
     poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair
   });
 
   return poolMap;
 }
-

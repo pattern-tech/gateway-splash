@@ -9,20 +9,22 @@ import { MaestroSupportedNetworks } from '@maestro-org/typescript-sdk';
  * @function
  */
 export function getCardanoConfig(network: MaestroSupportedNetworks): CardanoConfig {
-  // getting the config manger
+  // getting the config manager
   const configManager = ConfigManagerV2.getInstance();
+
+  let _network = String(network).toLowerCase();
 
   return {
     network: {
-      name: network,
-      nodeURL: configManager.get(`cardano.networks.${network}.nodeURL`),
-      timeOut: configManager.get(`cardano.networks.${network}.timeOut`),
+      name: _network,
+      nodeURL: configManager.get(`cardano.networks.${_network}.nodeURL`),
+      // timeOut: configManager.get(`cardano.networks.${network}.timeOut`),
       maxLRUCacheInstances: configManager.get(
-        `cardano.networks.${network}.maxLRUCacheInstances`,
+        `cardano.networks.${_network}.maxLRUCacheInstances`,
       ),
-      utxosLimit: configManager.get(`cardano.networks.${network}.utxosLimit`),
+      utxosLimit: configManager.get(`cardano.networks.${_network}.utxosLimit`),
       defaultSlippage: configManager.get(
-        `cardano.networks.${network}.defaultSlippage`,
+        `cardano.networks.${_network}.defaultSlippage`,
       ),
     },
   };
