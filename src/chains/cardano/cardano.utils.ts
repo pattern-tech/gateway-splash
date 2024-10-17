@@ -201,11 +201,11 @@ export async function getTokenMetadataWithBackoff(
         metadata.set(
           token.name.toUpperCase(),
           _metadata || {
-            decimals: 0,
+            decimals: 1, // results to show the raw number instead of zero
             description: '',
             logo: '',
-            name: '',
-            ticker: '',
+            name: token.name.toUpperCase(),
+            ticker: token.name.toUpperCase(),
             url: '',
           },
         );

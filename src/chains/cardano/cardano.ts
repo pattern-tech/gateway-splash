@@ -92,8 +92,6 @@ export class Cardano {
     this._splashPools = splashPools;
   }
 
-
-
   /**
    * Asynchronously Initializes the Cardano instance
    * @returns {Promise<void>}
@@ -107,15 +105,18 @@ export class Cardano {
     return;
   }
 
-  private async loadTokenMetadata(){
+  private async loadTokenMetadata() {
     // requires `loadAssets` and and `loadPools` to be called before
-    if (!this._assetMap){
-      throw new Error("try to re-init the object !")
+    if (!this._assetMap) {
+      throw new Error('try to re-init the object !');
     }
 
     // loading the metadata with backoff
-    console.log("fetching the token metadata, this can take a while")
-    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(Object.values(this._assetMap), this._node);
+    console.log('fetching the token metadata, this can take a while');
+    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+      Object.values(this._assetMap),
+      this._node,
+    );
   }
   /**
    * Gets or creates an Cardano instance
@@ -358,7 +359,7 @@ export class Cardano {
       throw new Error(`Asset '${assetName}' not found in ${this._chain} Node!`);
     }
 
-    // lazy loading the token metadata
+    // fetching the fresh metadata
     let tokenMetadata = await getTokenMetadata(
       CardanoToken.policyId,
       CardanoToken.name,
@@ -367,7 +368,7 @@ export class Cardano {
 
     [CardanoToken.decimals, CardanoToken.symbol] = tokenMetadata
       ? [tokenMetadata.decimals, tokenMetadata.ticker]
-      : [6, CardanoToken.name];
+      : [1, CardanoToken.name];
 
     try {
       const utxos = await this.getAddressUtxos(accountAddress, {
@@ -429,7 +430,7 @@ export class Cardano {
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
         const tokenDecimals = isAda
           ? 6
-          : this.findToken(tokenName)?.decimals ?? 6;
+          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 1;
 
         assets[tokenName] = BigNumber(
           this.fromRaw(
@@ -488,6 +489,7 @@ export class Cardano {
       quoteToken,
     );
 
+    // fetching fresh token decimals
     let baseMetadata = await getTokenMetadata(
       baseCardanoToken.policyId,
       baseCardanoToken.name,
@@ -499,14 +501,21 @@ export class Cardano {
       this._node,
     );
 
-    // lazy loading the token metadata
-    [baseCardanoToken.decimals, baseCardanoToken.symbol] = baseMetadata
-      ? [baseMetadata.decimals, baseMetadata.ticker]
-      : [6, baseCardanoToken.name];
+    if (!baseMetadata || !quoteMetadata) {
+      throw new Error(
+        "Couldn't find the tokens metadata, try a verified token",
+      );
+    }
 
-    [quoteCardanoToken.decimals, quoteCardanoToken.symbol] = quoteMetadata
-      ? [quoteMetadata.decimals, quoteMetadata.ticker]
-      : [6, quoteCardanoToken.name];
+    [baseCardanoToken.decimals, baseCardanoToken.symbol] = [
+      baseMetadata.decimals,
+      baseMetadata.ticker,
+    ];
+
+    [quoteCardanoToken.decimals, quoteCardanoToken.symbol] = [
+      quoteMetadata.decimals,
+      quoteMetadata.ticker,
+    ];
 
     const [inputToken, outputToken] = this.createTokens(
       baseCardanoToken,
@@ -744,14 +753,21 @@ export class Cardano {
       this._node,
     );
 
-    // lazy loading the token metadata
-    [realBaseToken.decimals, realBaseToken.symbol] = baseMetadata
-      ? [baseMetadata.decimals, baseMetadata.ticker]
-      : [6, realBaseToken.name];
+    if (!baseMetadata || !quoteMetadata) {
+      throw new Error(
+        "Couldn't find the tokens metadata, try a verified token",
+      );
+    }
 
-    [realQuoteToken.decimals, realQuoteToken.symbol] = quoteMetadata
-      ? [quoteMetadata.decimals, quoteMetadata.ticker]
-      : [6, realQuoteToken.name];
+    [realBaseToken.decimals, realBaseToken.symbol] = [
+      baseMetadata.decimals,
+      baseMetadata.ticker,
+    ];
+
+    [realQuoteToken.decimals, realQuoteToken.symbol] = [
+      quoteMetadata.decimals,
+      quoteMetadata.ticker,
+    ];
 
     let nftBase16Name = getNftBase16Names(
       realBaseToken.token.asset.nameBase16,
