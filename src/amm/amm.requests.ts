@@ -26,7 +26,7 @@ export interface PriceResponse {
   expectedAmount: string;
   price: string;
   network: string;
-  timestamp: number;
+  timestamp: string;
   latency: number;
   gasPrice: number;
   gasPriceToken: string;
@@ -74,14 +74,14 @@ export interface TradeRequest extends NetworkSelectionRequest {
 
 export interface TradeResponse {
   network: string;
-  timestamp: number;
+  timestamp: string;
   latency: number;
   base: string;
   quote: string;
   amount: string; // traderequest.amount
   finalAmountReceived?: string; // Cosmos
   rawAmount: string;
-  finalAmountReceived_basetoken?: string; // Cosmos
+  finalAmountReceived_baseToken?: string; // Cosmos
   expectedIn?: string;
   expectedOut?: string;  // Cosmos: expectedAmountReceived
   expectedPrice?: string;  // Cosmos

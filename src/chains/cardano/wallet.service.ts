@@ -36,7 +36,7 @@ export class CardanoWallet {
       throw new Error('Wallet is not initialized.');
     }
 
-    const stakeKey = new RewardAddress(NetworkId.TESTNET, {
+    const stakeKey = new RewardAddress(NetworkId.MAINNET, {
       hash: this.accountKey
         .derive(2) // Stake chain (2)
         .derive(0) // First address index
@@ -55,7 +55,7 @@ export class CardanoWallet {
       throw new Error('Wallet is not initialized.');
     }
 
-    const enterpriseKey = new EnterpriseAddress(NetworkId.TESTNET, {
+    const enterpriseKey = new EnterpriseAddress(NetworkId.MAINNET, {
       hash: this.accountKey
         .derive(0) // External chain (0)
         .derive(0) // First address index
@@ -74,7 +74,7 @@ export class CardanoWallet {
       throw new Error('Wallet is not initialized.');
     }
 
-    const enterpriseKey = new EnterpriseAddress(NetworkId.TESTNET, {
+    const enterpriseKey = new EnterpriseAddress(NetworkId.MAINNET, {
       hash: this.accountKey
         .derive(0) // External chain (0)
         .derive(0) // First address index
@@ -84,7 +84,7 @@ export class CardanoWallet {
       type: HashType.ADDRESS,
     });
 
-    const stakeKey = new RewardAddress(NetworkId.TESTNET, {
+    const stakeKey = new RewardAddress(NetworkId.MAINNET, {
       hash: this.accountKey
         .derive(2) // Stake chain (2)
         .derive(0) // First address index
@@ -95,7 +95,7 @@ export class CardanoWallet {
     });
 
     const address = new BaseAddress(
-      NetworkId.TESTNET,
+      NetworkId.MAINNET,
       enterpriseKey.paymentCredential,
       stakeKey.stakeCredential,
     );

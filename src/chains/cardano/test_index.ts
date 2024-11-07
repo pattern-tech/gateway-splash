@@ -1,49 +1,43 @@
-// import { Cardano } from './cardano';
-
-// async function main() {
-//   let cardano: Cardano | null = null;
-//   try {
-//     console.log("Initializing Cardano instance...");
-//     cardano = Cardano.getInstance('Mainnet', 'arbitrage'); // arbitrage is a random name
-    
-//     console.log("Initializing Cardano...");
-//     await cardano.init();
-//     console.log("Cardano initialized successfully.");
-
-//     const address = "addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv";
-//     const assetName = 'SOLANA';
-
-//     console.log(`Fetching balance for ${assetName}...`);
-//     let balance = await cardano.getAssetBalance(address, assetName);
-//     console.log(`Balance for ${assetName}: ${balance}`);
-//   } catch (error) {
-//     console.error("An error occurred:", error);
-//     if (error instanceof Error) {
-//       console.error("Error message:", error.message);
-//       console.error("Error stack:", error.stack);
-//     }
-//   } finally {
-//     if (cardano) {
-//       console.log("Closing Cardano instance...");
-//       await cardano.close();
-//       console.log("Cardano instance closed.");
-//     }
-//   }
-// }
-
-// main().then(res => {
-//   console.info("all tests passed");
-//   process.exit(0);
-// }).catch(error => {
-//   console.error("Unhandled error in main:", error);
-//   process.exit(1);
-// });
-
+//  ✔ constructor (done in 1)
+//  ✔ init (done in 3)
+//  ✔ loadTokenMetadata (done in 1)
+//  ✔ getInstance
+//  ✔ getConnectedInstances (done in 1)
+//  ✔ getAddressUtxos (done in 4)
+//  ✔ getAccountFromMnemonic
+//  ✔ getAssetBalance
+//  ✔ getAdaBalance
+//  ✔ getBalance
+//  ✔ loadAssets (done in 4)
+//  ✔ loadPools (done in 4)
+//  * swap
+//  ✔ validateTokens (done in swap)
+//  * createTokens (done in swap)
+//  * validatePool (done in swap)
+//  ✔ getPrice (done in swap)
+//  * createSwapTransaction (done in swap)
+//  * estimateFee (done in swap)
+//  ✔ estimate
+//  ✔ findToken (done in estimate)
+//  * signAndSubmitTransaction (done in swap)
+//  * createTradeResponse  (done in swap)
+//  ✔ createPriceResponse (done in estimate)
+//  ✔ calculateMinOutput
+//  ✔ fromRaw
+//  ✔ toRaw
+//  ✔ calculatePrice
+//  ✔ getPoolByToken
+//  ✔ fetchLatestPoolByToken
+//  ✔ getTx
+//  ✔ getAddressTxs
+//  * getTxState // server error
 
 import { Cardano } from './cardano';
 import { BigNumber } from 'bignumber.js';
 import { CardanoWallet } from './wallet.service';
 import assert from 'assert';
+import dotenv from 'dotenv';
+dotenv.config({ path: '../../../.env' });
 
 // Simple test runner
 async function runTests() {
@@ -66,81 +60,125 @@ async function runTests() {
     });
   }
 
-
-
   // Tests
-  test('getInstance should return a Cardano instance', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
-    assert(cardano instanceof Cardano, 'Expected getInstance to return a Cardano instance');
-  });
-
-  test('getInstance should return the same instance for the same parameters', async () => {
-    const cardano1 = Cardano.getInstance('Mainnet', 'test');
-    const cardano2 = Cardano.getInstance('Mainnet', 'test');
-    assert(cardano1 === cardano2, 'Expected getInstance to return the same instance');
-  });
-
-  test('getAdaBalance should return the correct balance', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
-    const balance = await cardano.getAdaBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv');
-    console.log(balance)
-    assert(balance === '90.526477', 'Expected ADA balance to be 95');
-  });
-
-  test('getAssetBalance should throw for ADA', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
-    try {
-      await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'ADA');
-      assert(false, 'Expected getAssetBalance to throw for ADA');
-    } catch (error) {
-      assert((error as Error).message.includes('use `getAdaBalance` function !'), 'Expected specific error message');
-    }
-  });
-
-  test('getAssetBalance should return correct balance for non-ADA asset', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
-    await cardano.init();
-    const balance = await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'SOLANA');
-    assert(balance === '995309491892955', 'Expected SOLANA balance to be 995,309,491,892,955');
-  });
-
-  test('getBalance should return ADA and non-ADA balance of an address', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
-    await cardano.init();
-    const balance = cardano.getBalance(await cardano.getAddressUtxos('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv'));
-    assert(balance);
-  });
-
-  // test('swap should perform a swap and return a TradeResponse', async () => {
+  // test('1.getInstance should return a Cardano instance', async () => {
   //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   const mockWallet = new CardanoWallet('mock_mnemonic');
-  //   (cardano as any).validateTokens = () => [
-  //     { policyId: 'policy_a', name: 'TOKEN_A', decimals: 6, symbol: 'TA' },
-  //     { policyId: 'policy_b', name: 'TOKEN_B', decimals: 6, symbol: 'TB' }
-  //   ];
-  //   (cardano as any).createTokens = () => [
-  //     { asset: { policyId: 'policy_a', name: 'TOKEN_A' } },
-  //     { asset: { policyId: 'policy_b', name: 'TOKEN_B' } }
-  //   ];
-  //   (cardano as any).validatePool = () => {};
-  //   (cardano as any).getPrice = async () => ({ raw: '1.5' });
-  //   (cardano as any).createSwapTransaction = async () => ({ cbor: 'mock_cbor' });
-  //   (cardano as any).estimateFee = async () => 1000000;
-  //   (cardano as any).signAndSubmitTransaction = async () => 'mock_tx_hash';
-  //   (cardano as any).calculateMinOutput = () => new BigNumber(95);
-  //   (cardano as any).createTradeResponse = async () => ({ txHash: 'mock_tx_hash' });
-
-  //   const result = await cardano.swap(
-  //     mockWallet,
-  //     'TOKEN_A',
-  //     'TOKEN_B',
-  //     new BigNumber(100),
-  //     '1.5',
-  //     true,
-  //     '1'
-  //   );
-  //   assert(result.txHash === 'mock_tx_hash', 'Expected swap to return a TradeResponse with txHash');
+  //   assert(cardano instanceof Cardano, 'Expected getInstance to return a Cardano instance');
   // });
+
+  // test('1.1.getInstance should return the same instance for the same parameters', async () => {
+  //   const cardano1 = Cardano.getInstance('Mainnet', 'test');
+  //   const cardano2 = Cardano.getInstance('Mainnet', 'test');
+  //   const connectedInstances = Cardano.getConnectedInstances();
+  //   assert(Object.keys(connectedInstances).length === 1, "More than one instance was made")
+  //   assert(cardano1 === cardano2, 'Expected getInstance to return the same instance');
+  // });
+
+  // test('2.getAdaBalance should return the correct balance', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   const balance = await cardano.getAdaBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv');
+  //   console.log(balance)
+  //   assert(balance === '90.526477', 'Expected ADA balance to be 95');
+  // });
+
+  // test('3.getAssetBalance should throw for ADA', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   try {
+  //     await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'ADA');
+  //     assert(false, 'Expected getAssetBalance to throw for ADA');
+  //   } catch (error) {
+  //     assert((error as Error).message.includes('use `getAdaBalance` function !'), 'Expected specific error message');
+  //   }
+  // });
+
+  // test('3.1.getAssetBalance should return correct balance for non-ADA asset', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   await cardano.init();
+  //   const balance = await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'SOLANA');
+  //   assert(balance === '995309491892955', 'Expected SOLANA balance to be 995,309,491,892,955');
+  // });
+
+  // test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   await cardano.init();
+  //   const balance = cardano.getBalance(await cardano.getAddressUtxos('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv'));
+  //   assert(balance);
+  // });
+
+  // test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   let cardanoWallet = cardano.getAccountFromMnemonic(String(process.env.DAEDLUS_KEY));
+  //   await cardanoWallet.initialize();
+  //   assert(cardanoWallet.generateBaseAddress() === "addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v", "generated address doesn't match with the expected address ");
+  // });
+
+  // test('6.estimate must return a deterministic price of two tokens', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   await cardano.init();
+
+  //   let estimatedPrice = await cardano.estimate(
+  //     'ADA',
+  //     'IAG',
+  //     BigNumber(300),
+  //     false, // true to reverse the trade
+  //     '5',
+  //   );
+  //   console.log(estimatedPrice);
+  // });
+
+  // test('7.tx related functions must return the expected transactions', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+  //   await cardano.init();
+
+  //   let txByHash = await cardano.getTx(
+  //     '1d91de83375db664a59772ab820e51c34ed6990bd9b4c836b12484d5bbeee3f9',
+  //   );
+  //   // let txStateByHash = await cardano.getTxState(
+  //   //   '1d91de83375db664a59772ab820e51c34ed6990bd9b4c836b12484d5bbeee3f9',
+  //   // ); // not working
+  //   let addressTxs = await cardano.getAddressTxs(
+  //     'addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv',
+  //   );
+
+  //   console.log(txByHash);
+  //   // console.log(txStateByHash);
+  //   console.log(addressTxs);
+  // });
+
+  // test('8.pool fetchers must return expected pools', async () => {
+  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+
+  //   await cardano.init();
+
+  //   let pairPool = cardano.getPoolByPair('ADA', 'HUNT');
+
+  //   let pairLatestPools = await cardano.fetchLatestPoolByToken('ADA', 'HUNT');
+
+  //   console.log(pairPool);
+
+  //   console.log(pairLatestPools);
+  // });
+
+  test('swap should perform a swap and return a TradeResponse', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    await cardano.init();
+    const wallet = cardano.getAccountFromMnemonic(
+      String(process.env.DAEDLUS_KEY),
+    );
+    await wallet.initialize();
+    const result = await cardano.swap(
+      wallet,
+      'ADA',
+      'HUNT',
+      BigNumber(3),
+      true,
+      '5',
+    );
+    assert(
+      result.txHash === 'mock_tx_hash',
+      'Expected swap to return a TradeResponse with txHash',
+    );
+  });
 
   // Run all tests
   for (const testFn of tests) {

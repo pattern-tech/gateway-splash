@@ -22,15 +22,19 @@ import {
 } from '@maestro-org/typescript-sdk';
 import fse from 'fs-extra';
 import {
-  cborHexToBytes,
+  AssetInfo,
+  bytesToString,
   Currency,
   hexToString,
   Price,
-  Splash,
+  SplashApi,
+  SplashBuilder,
+  MaestroExplorer,
   stringToHex,
   Transaction,
+  UTxO,
+  selectEstimatedPrice,
 } from '@splashprotocol/sdk';
-import { sha256 } from '@ethersproject/solidity';
 import { getCardanoConfig } from './cardano.config';
 import {
   getAssetsFromPools,
@@ -42,13 +46,15 @@ import {
   getTokenMetadataWithBackoff,
 } from './cardano.utils';
 import { SplashPool } from './types/cardano.types';
-import { SplashClientType, TradeSlippage } from './types/node.types';
+import { SplashInstance, TradeSlippage } from './types/node.types';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { BigNumber } from 'bignumber.js';
 import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import { sha256 } from '@ethersproject/solidity';
+import { TransactionUnspentOutput } from '@dcspark/cardano-multiplatform-lib-browser';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -61,7 +67,7 @@ export class Cardano {
   private _chain: string = 'cardano';
   private _network: MaestroSupportedNetworks;
   private _node: MaestroClient;
-  private _dex: Splash<SplashClientType>;
+  private _dex: SplashInstance;
   private _splashPools: Record<string, SplashPool[]>; // key : nft name16base + pool policy id
   private _ready: boolean = false;
   public minFee: number;
@@ -79,6 +85,7 @@ export class Cardano {
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
   ) {
+    
     this._network = network;
     this._node = new MaestroClient(
       getMaestroConfig(network, config.network.nodeURL),
@@ -260,7 +267,6 @@ export class Cardano {
         asset: params?.asset || null,
       })
     ).data;
-
     return utxos;
   }
 
@@ -497,9 +503,9 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
-    priceLimit?: string,
     sell: boolean = false,
     slippage: TradeSlippage = this.defaultSlippage,
+    priceLimit?: string,
   ): Promise<TradeResponse> {
     const [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
@@ -551,9 +557,8 @@ export class Cardano {
     const price = await this.getPrice(
       baseCardanoToken,
       quoteCardanoToken,
-      amount,
-      priceLimit,
       sell,
+      priceLimit,
     );
 
     const swapTx = await this.createSwapTransaction(
@@ -561,13 +566,10 @@ export class Cardano {
       outputToken,
       price,
       Number(slippage),
+      String(wallet.generateBaseAddress()),
     );
 
-    const estimatedFee = await this.estimateFee(swapTx);
-    const txHash = await this.signAndSubmitTransaction(
-      wallet,
-      Buffer.from(cborHexToBytes(swapTx.cbor)),
-    );
+    const estimatedFee = await this.estimateFee(inputToken, outputToken.asset);
 
     const minOutput = this.calculateMinOutput(
       amount,
@@ -575,6 +577,11 @@ export class Cardano {
       outputToken.asset.decimals,
       Number(slippage),
     );
+
+    // const txHash = await this.signAndSubmitTransaction(
+    //   wallet,
+    //   Buffer.from(cborHexToBytes(swapTx.cbor)),
+    // );
 
     return this.createTradeResponse(
       baseCardanoToken,
@@ -584,7 +591,7 @@ export class Cardano {
       minOutput,
       sell,
       estimatedFee,
-      txHash,
+      'txHash',
     );
   }
 
@@ -602,14 +609,16 @@ export class Cardano {
     const baseCardanoToken = this.findToken(baseToken.toUpperCase());
     const quoteCardanoToken = this.findToken(quoteToken.toUpperCase());
 
-    if (!baseCardanoToken)
+    if (!baseCardanoToken) {
       throw new Error(
         `The ${baseToken.toUpperCase()} token is not supported by splash dex!`,
       );
-    if (!quoteCardanoToken)
+    }
+    if (!quoteCardanoToken) {
       throw new Error(
         `The ${quoteToken.toUpperCase()} token is not supported by splash dex!`,
       );
+    }
 
     return [baseCardanoToken, quoteCardanoToken];
   }
@@ -658,47 +667,14 @@ export class Cardano {
       !this._splashPools[poolNftNamesBase16.quoteToBase]
     ) {
       throw new Error(
-        `The ${poolNftNamesBase16.baseToQuote.slice(0, -6).split('5f')} pair is not supported by splash dex!`,
+        `The ${poolNftNamesBase16.baseToQuote
+          .slice(0, -8)
+          .split('5f')
+          .map((base16name) =>
+            hexToString(base16name),
+          )} pair is not supported by splash dex!`,
       );
     }
-  }
-
-  /**
-   * Gets the price for a swap
-   * @param {CardanoToken} baseCardanoToken - The base token
-   * @param {CardanoToken} quoteCardanoToken - The quote token
-   * @param {BigNumber} amount - The amount to swap
-   * @param {string | undefined} priceLimit - Optional price limit for the swap
-   * @param {boolean} sell - Whether this is a sell operation
-   * @returns {Promise<Price>} A promise that resolves to the price for the swap
-   */
-  private async getPrice(
-    baseCardanoToken: CardanoToken,
-    quoteCardanoToken: CardanoToken,
-    amount: BigNumber,
-    priceLimit: string | undefined,
-    sell: boolean,
-  ): Promise<Price> {
-    if (priceLimit) {
-      return Price.new({
-        base: baseCardanoToken.token.asset,
-        quote: quoteCardanoToken.token.asset,
-        raw: priceLimit,
-      });
-    }
-
-    const orderBook = await this._dex.api.getOrderBook({
-      base: baseCardanoToken.token.asset,
-      quote: quoteCardanoToken.token.asset,
-    });
-
-    return this._dex.utils.selectEstimatedPrice({
-      orderBook,
-      input: (sell ? baseCardanoToken : quoteCardanoToken).token.withAmount(
-        BigInt(amount.toNumber()),
-      ),
-      priceType: 'average',
-    });
   }
 
   /**
@@ -714,6 +690,7 @@ export class Cardano {
     outputToken: Currency,
     price: Price,
     slippage: number,
+    userAddress: string,
   ): Promise<Transaction> {
     return await this._dex
       .newTx()
@@ -728,16 +705,20 @@ export class Cardano {
 
   /**
    * Estimates the fee for a swap transaction
-   * @param {Transaction} swapTx - The swap transaction
-   * @returns {Promise<number>} A promise that resolves to the estimated fee
+   * @param {Currency} input - The input token with amount
+   * @param {AssetInfo} outputAsset - The output token asset information
+   * @returns {Promise<string>} A promise that resolves to the estimated fee as a string
    */
-  private async estimateFee(swapTx: Transaction): Promise<number> {
-    const protocolParams = (await this._node.general.protocolParameters()).data;
-    return (
-      protocolParams.min_fee_coefficient +
-      protocolParams.min_fee_constant.ada.lovelace *
-        cborHexToBytes(swapTx.cbor).length
-    );
+  private async estimateFee(input: Currency, outputAsset: AssetInfo): Promise<string> {
+    const tx = await this._dex
+      .newTx()
+      .spotOrder({
+        input,
+        outputAsset,
+      })
+      .complete();
+
+    return tx.wasm.body().fee().toString();
   }
 
   /**
@@ -752,6 +733,7 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
+    sell: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
     const [realBaseToken, realQuoteToken] = this.validateTokens(
@@ -769,37 +751,31 @@ export class Cardano {
       realQuoteToken.name,
       this._node,
     );
-
     if (!baseMetadata || !quoteMetadata) {
       throw new Error(
         "Couldn't find the tokens metadata, try a verified token",
       );
     }
 
-    [realBaseToken.decimals, realBaseToken.symbol] = [
+    [
+      realBaseToken.decimals,
+      realBaseToken.symbol,
+      realBaseToken.token.asset.metadata,
+    ] = [
       baseMetadata.decimals,
       baseMetadata.ticker,
+      { policyId: realBaseToken.policyId, subject: '', ...baseMetadata },
     ];
 
-    [realQuoteToken.decimals, realQuoteToken.symbol] = [
+    [
+      realQuoteToken.decimals,
+      realQuoteToken.symbol,
+      realQuoteToken.token.asset.metadata,
+    ] = [
       quoteMetadata.decimals,
       quoteMetadata.ticker,
+      { policyId: realQuoteToken.policyId, subject: '', ...quoteMetadata },
     ];
-
-    let nftBase16Name = getNftBase16Names(
-      realBaseToken.token.asset.nameBase16,
-      realQuoteToken.token.asset.nameBase16,
-    );
-
-    let sell: boolean;
-
-    if (this._splashPools[nftBase16Name.quoteToBase]) {
-      sell = true;
-    } else if (this._splashPools[nftBase16Name.baseToQuote]) {
-      sell = false;
-    } else {
-      throw new Error("didn't find the pool");
-    }
 
     return this.createPriceResponse(
       realBaseToken,
@@ -815,7 +791,7 @@ export class Cardano {
    * @param {string} symbolOrName - The token symbol or name
    * @returns {CardanoToken}
    */
-  private findToken(symbolOrName: string): CardanoToken | undefined {
+  public findToken(symbolOrName: string): CardanoToken | undefined {
     const token = this._assetMap[symbolOrName];
     return token;
   }
@@ -824,13 +800,27 @@ export class Cardano {
    * Gets the latest block timestamp
    * @returns {Promise<number>}
    */
-  private async getBlockTimestamp(): Promise<number> {
+  private async getBlockTimestamp(): Promise<string> {
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
-    return Number(blockInfo.data.timestamp);
+    return blockInfo.data.timestamp;
   }
+  // private async CreateWalletContext(userAddress: string): Promise<UTxO[]> {
+  //   let addressUtxos = await this.getAddressUtxos(userAddress);
 
+  //   let UtxoContexts: UTxO[] = [];
+  //   for (const utxo of addressUtxos) {
+  //     let cbor = (await this._node.transactions.txCborByTxHash(utxo.tx_hash)).data;
+  //     console.log(hexToCborHex(cbor))
+  //     console.log(utxo)
+
+  //     UtxoContexts.push(UTxO.new(cbor));
+  //   }
+
+  //   console.log(UtxoContexts)
+  //   return UtxoContexts;
+  // }
   /**
    * Submits a transaction
    * @param {CardanoWallet} wallet - The wallet submitting the transaction
@@ -872,7 +862,7 @@ export class Cardano {
     price: string,
     minOutput: BigNumber,
     sell: boolean,
-    estimatedFee: number,
+    estimatedFee: string,
     txHash: string,
   ): Promise<TradeResponse> {
     const decimals = sell
@@ -892,7 +882,7 @@ export class Cardano {
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
       gasLimit: this.minFee, // not applicable
-      gasCost: String(estimatedFee), // the total transaction fee in ada,
+      gasCost: estimatedFee, // the total transaction fee in ada,
       txHash,
     };
   }
@@ -921,15 +911,19 @@ export class Cardano {
       ? (baseToken.decimals as number)
       : (quoteToken.decimals as number);
 
-    let price = String(
-      (await this.calculatePrice(baseToken, quoteToken, sell, priceLimit)).raw,
+    console.log(
+      (await this.getPrice(baseToken, quoteToken, sell, priceLimit)).raw,
+      '\n',
+      decimals,
     );
+    let price = (await this.getPrice(baseToken, quoteToken, sell, priceLimit))
+      .raw;
 
     let minOutput = this.calculateMinOutput(
       amount,
       BigNumber(price),
-      decimals,
       Number(slippage),
+      decimals,
     );
 
     return {
@@ -960,12 +954,16 @@ export class Cardano {
   public calculateMinOutput(
     amount: BigNumber,
     price: BigNumber,
-    decimals: number,
     slippage: number,
+    decimals: number,
   ): BigNumber {
-    return amount
-      .multipliedBy(this.fromRaw(price, decimals))
-      .multipliedBy(slippage / 100);
+    const effectivePrice = price.multipliedBy(1 + slippage * 0.01);
+
+    const minOutputBase = amount.div(effectivePrice);
+
+    let minOutput = this.fromRaw(minOutputBase, decimals);
+
+    return BigNumber(minOutput);
   }
 
   /**
@@ -996,7 +994,7 @@ export class Cardano {
    * @param {string} [priceLimit] - Optional price limit
    * @returns {Promise<Price>}
    */
-  private async calculatePrice(
+  private async getPrice(
     baseToken: CardanoToken,
     quoteToken: CardanoToken,
     sell: boolean,
@@ -1006,9 +1004,18 @@ export class Cardano {
       return Price.new({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
-        raw: priceLimit,
+        value: priceLimit,
       });
     }
+
+    [baseToken.token.asset, quoteToken.token.asset] = [
+      baseToken,
+      quoteToken,
+    ].map((token) =>
+      token.token.asset.isAda()
+        ? AssetInfo.fromString('', '')
+        : token.token.asset,
+    );
 
     const orderBook = await this._dex.api.getOrderBook({
       base: baseToken.token.asset,
@@ -1017,13 +1024,12 @@ export class Cardano {
 
     const input = (sell ? baseToken : quoteToken).token.withAmount(BigInt(1));
 
-    return this._dex.utils.selectEstimatedPrice({
+    return selectEstimatedPrice({
       orderBook,
       input,
       priceType: 'average',
     });
   }
-
   /**
    * Gets a pool by its token ids without fetching the latest state of the pool
    * @param {string} x - The base token name cbor hex encoded
@@ -1031,8 +1037,16 @@ export class Cardano {
    * @returns {SplashPool[]} The founded pools
    * @throws {Error} If no pools are found
    */
-  public getPoolByToken(x: string, y: string): SplashPool[] {
-    const { baseToQuote, quoteToBase } = getNftBase16Names(x, y);
+  public getPoolByPair(x: string, y: string): SplashPool[] {
+    const [realBaseToken, realQuoteToken] = this.validateTokens(
+      x.toUpperCase(),
+      y.toUpperCase(),
+    );
+
+    const { baseToQuote, quoteToBase } = getNftBase16Names(
+      realBaseToken.token.asset.nameBase16,
+      realQuoteToken.token.asset.nameBase16,
+    );
 
     const pools = [
       ...(this._splashPools[baseToQuote] || []),
@@ -1057,7 +1071,7 @@ export class Cardano {
     y: string,
   ): Promise<SplashPool[]> {
     this._splashPools = await getSplashPools(this._dex);
-    return this.getPoolByToken(x, y);
+    return this.getPoolByPair(x, y);
   }
 
   /**
@@ -1082,7 +1096,7 @@ export class Cardano {
       await this._node.addresses.txsByAddress(address, {
         count: params?.limit || this.utxosLimit,
         order: params?.sortDirection || 'desc',
-        cursor: params?.offset || '0',
+        cursor: params?.offset || null,
       })
     ).data;
   }

@@ -7,14 +7,19 @@ import {
 import {
   Currency,
   Network,
-  Splash,
+  SplashBuilder,
   SplashApi,
-  SplashRemoteCollaterals,
+  MaestroExplorer, 
   stringToHex,
+  SplashBackend,
+  BuilderLegacy,
+  Dictionary,
+  Operation,
+  Api,
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
-import { poolNftNames, SplashClientType } from './types/node.types';
+import { poolNftNames,  SplashInstance } from './types/node.types';
 import dotenv from 'dotenv';
 import LRUCache from 'lru-cache';
 import { getCardanoConfig } from './cardano.config';
@@ -33,12 +38,11 @@ export function getMaestroConfig(
 
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
-): Splash<SplashClientType> {
+): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
-  return Splash.new(SplashApi.new(splashNetwork), splashNetwork, {
-    remoteCollaterals: SplashRemoteCollaterals.new(),
-  });
+  return SplashBuilder(SplashApi({network : splashNetwork}), MaestroExplorer.new(splashNetwork, ""));
+  
 }
 
 export function getAssetsFromPools(
@@ -76,35 +80,22 @@ export function getAssetsFromPools(
    * - '4e4654' (hex for 'NFT')
    * - '414441' (hex for 'ADA')
    */
-
+  let addToAssetMap = (token: Currency) => {
+    tokens[token.asset.name.toUpperCase()] = {
+      token: token,
+      policyId: token.asset.policyId,
+      decimals: 1,
+      symbol: token.asset.name.toUpperCase(),
+      name: token.asset.name.toUpperCase(),
+      splashSupport: true,
+    };
+  };
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
-      if (
-        pool.x.asset.name !== '' &&
-        !String(pool.nft.nameBase16).includes('414441')
-      ) {
-        tokens[pool.x.asset.name.toUpperCase()] = {
-          token: pool.x,
-          policyId: pool.x.asset.policyId,
-          decimals: 1,
-          symbol: pool.x.asset.name.toUpperCase(),
-          name: pool.x.asset.name.toUpperCase(),
-          splashSupport: true,
-        };
-      }
-
-      if (
-        pool.y.asset.name !== '' &&
-        !String(pool.nft.nameBase16).includes('414441')
-      ) {
-        tokens[pool.y.asset.name.toUpperCase()] = {
-          token: pool.y,
-          policyId: pool.y.asset.policyId,
-          decimals: 1,
-          symbol: pool.y.asset.name.toUpperCase(),
-          name: pool.y.asset.name.toUpperCase(),
-          splashSupport: true,
-        };
+      if (pool.x.asset.name !== '') {
+        addToAssetMap(pool.x);
+      } else if (pool.y.asset.name !== '') {
+        addToAssetMap(pool.y);
       }
     });
   });
@@ -117,8 +108,8 @@ export function getNftBase16Names(
   quoteName16: string,
 ): poolNftNames {
   return {
-    baseToQuote: baseName16 + '5f' + quoteName16 + '4e4654',
-    quoteToBase: quoteName16 + '5f' + baseName16 + '4e4654',
+    baseToQuote: baseName16 + '5f' + quoteName16 + '5f4e4654',
+    quoteToBase: quoteName16 + '5f' + baseName16 + '5f4e4654',
   };
 }
 
@@ -127,6 +118,16 @@ export async function getTokenMetadata(
   name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
+  if (['LOVELACE', 'ADA'].includes(name.toUpperCase())) {
+    return {
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'ADA',
+      ticker: 'ADA',
+      url: '',
+    };
+  }
   try {
     return (
       await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
@@ -179,7 +180,10 @@ export async function getTokenMetadataWithBackoff(
       };
       metadata.set(token.name.toUpperCase(), tokenMetadata);
     } catch (error) {
-      if (String(error).includes('code 429')) {
+      if (
+        String(error).includes('code 429') ||
+        String(error).includes('code 403')
+      ) {
         await delay(1000);
         return fetchMetadata(token);
       } else if (String(error).includes('code 404')) {
@@ -211,9 +215,8 @@ export async function getTokenMetadataWithBackoff(
   return metadata;
 }
 
-
 export async function getSplashPools(
-  splashClient: Splash<SplashClientType>,
+  splashClient: SplashInstance,
 ): Promise<Record<string, SplashPool[]>> {
   // loading pools
   let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({

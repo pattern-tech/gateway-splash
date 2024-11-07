@@ -30,6 +30,7 @@
     "@cosmjs/stargate": "^0.31.1",
     "@cosmjs/tendermint-rpc": "^0.32.2",
     "@crocswap/sdk": "^2.4.5",
+    "@dcspark/cardano-multiplatform-lib-browser": "^6.0.1",
     "@dcspark/cardano-multiplatform-lib-nodejs": "^6.0.1",
     "@ethersproject/abstract-provider": "5.7.0",
     "@ethersproject/address": "5.7.0",
@@ -52,7 +53,6 @@
     "@pancakeswap/v3-sdk": "^3.7.0",
     "@pangolindex/sdk": "^1.1.0",
     "@perp/sdk-curie": "^1.16.0",
-    "@splashprotocol/sdk": "^1.0.29",
     "@stricahq/bip32ed25519": "^1.1.0",
     "@stricahq/typhonjs": "^2.0.0",
     "@sushiswap/sdk": "^5.0.0-canary.116",
@@ -120,6 +120,7 @@
     "yarn": "^1.22.17"
   },
   "devDependencies": {
+    "@splashprotocol/sdk": "^2.0.0-beta.4",
     "@babel/core": "^7.0.0-0",
     "@babel/runtime": "^7.0",
     "@connectis/diff-test-coverage": "^1.5.1",
