@@ -110,13 +110,3 @@ export class CardanoWallet {
     return this.accountKey.derive(0).derive(0).toPrivateKey().sign(tx);
   }
 }
-
-// Example usage
-(async () => {
-  const mnemonic = String(process.env.PREPROD_WALLET_MNEMONIC);
-  const wallet = new CardanoWallet(mnemonic);
-
-  await wallet.initialize();
-  const baseAddress = wallet.generateBaseAddress();
-  console.log('Generated Base Address:', baseAddress);
-})();

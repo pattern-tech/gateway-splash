@@ -1,43 +1,15 @@
-import { Currency } from "@splashprotocol/sdk";
-import { Cardano } from "../cardano";
-import { UtxosByAddressOrderEnum } from "@maestro-org/typescript-sdk";
-
-export interface PollResponse {}
-
-export interface PoolRequest {
-  network: string;
-  poolId: string;
-}
-
-export interface PoolResponse {
-  id: string;
-}
-
-export interface PollRequest {
-  txHash: string;
-}
-
-export interface NonceResponse {}
-
-export interface NonceRequest {}
-
-export interface TokenResponse {}
-
-export interface TokenRequest {}
-
-export interface BalancesResponse {}
-
-export interface BalancesRequest {
-  address: string;
-}
+import { Currency } from '@splashprotocol/sdk';
+import { Cardano } from '../cardano';
+import { UtxosByAddressOrderEnum } from '@maestro-org/typescript-sdk';
 
 export interface CardanoToken {
-    token: Currency,
-    policyId: string,
-    decimals: number, 
-    name: string, 
-    symbol: string
-    splashSupport?: boolean
+  token: Currency;
+  policyId: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+  nameBase16?: string;
+  splashSupport?: boolean;
 }
 
 export interface CardanoNetworkConfig {
@@ -53,12 +25,12 @@ export interface CardanoConfig {
 }
 
 export interface CardanoConnectedInstance {
-    [name: string]: Cardano;
+  [name: string]: Cardano;
 }
 
 export interface TxRequestParams {
-  limit?: number, 
-  offset? : string, 
-  sortDirection?: UtxosByAddressOrderEnum,
-  asset? : string
+  limit?: number;
+  offset?: string;
+  sortDirection?: UtxosByAddressOrderEnum;
+  asset?: string;
 }

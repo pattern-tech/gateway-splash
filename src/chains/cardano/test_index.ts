@@ -61,122 +61,165 @@ async function runTests() {
   }
 
   // Tests
-  // test('1.getInstance should return a Cardano instance', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   assert(cardano instanceof Cardano, 'Expected getInstance to return a Cardano instance');
-  // });
+  test('1.getInstance should return a Cardano instance', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    assert(
+      cardano instanceof Cardano,
+      'Expected getInstance to return a Cardano instance',
+    );
+  });
 
-  // test('1.1.getInstance should return the same instance for the same parameters', async () => {
-  //   const cardano1 = Cardano.getInstance('Mainnet', 'test');
-  //   const cardano2 = Cardano.getInstance('Mainnet', 'test');
-  //   const connectedInstances = Cardano.getConnectedInstances();
-  //   assert(Object.keys(connectedInstances).length === 1, "More than one instance was made")
-  //   assert(cardano1 === cardano2, 'Expected getInstance to return the same instance');
-  // });
+  test('1.1.getInstance should return the same instance for the same parameters', async () => {
+    const cardano1 = Cardano.getInstance('Mainnet', 'test');
+    const cardano2 = Cardano.getInstance('Mainnet', 'test');
+    const connectedInstances = Cardano.getConnectedInstances();
+    assert(
+      Object.keys(connectedInstances).length === 1,
+      'More than one instance was made',
+    );
+    assert(
+      cardano1 === cardano2,
+      'Expected getInstance to return the same instance',
+    );
+  });
 
-  // test('2.getAdaBalance should return the correct balance', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   const balance = await cardano.getAdaBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv');
-  //   console.log(balance)
-  //   assert(balance === '90.526477', 'Expected ADA balance to be 95');
-  // });
+  test('2.getAdaBalance should return the correct balance', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    const balance = await cardano.getAdaBalance(
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+    );
+    console.log(balance);
+    assert(balance === '11.571138', 'Expected ADA balance to be 11');
+  });
 
-  // test('3.getAssetBalance should throw for ADA', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   try {
-  //     await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'ADA');
-  //     assert(false, 'Expected getAssetBalance to throw for ADA');
-  //   } catch (error) {
-  //     assert((error as Error).message.includes('use `getAdaBalance` function !'), 'Expected specific error message');
-  //   }
-  // });
+  test('3.getAssetBalance should throw for ADA', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    try {
+      await cardano.getAssetBalance(
+        'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+        'ADA',
+      );
+      assert(false, 'Expected getAssetBalance to throw for ADA');
+    } catch (error) {
+      assert(
+        (error as Error).message.includes('use `getAdaBalance` function !'),
+        'Expected specific error message',
+      );
+    }
+  });
 
-  // test('3.1.getAssetBalance should return correct balance for non-ADA asset', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   await cardano.init();
-  //   const balance = await cardano.getAssetBalance('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv', 'SOLANA');
-  //   assert(balance === '995309491892955', 'Expected SOLANA balance to be 995,309,491,892,955');
-  // });
+  test('3.1.getAssetBalance should return correct balance for non-ADA asset', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    await cardano.init();
+    const balance = await cardano.getAssetBalance(
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+      'HUNT',
+    );
+    assert(balance === '1.446308', 'Expected HUNT balance to be 1.446308');
+  });
 
-  // test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   await cardano.init();
-  //   const balance = cardano.getBalance(await cardano.getAddressUtxos('addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv'));
-  //   assert(balance);
-  // });
+  test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    await cardano.init();
+    const balance = cardano.getBalance(
+      await cardano.getAddressUtxos(
+        'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+      ),
+    );
+    assert(balance);
+  });
 
-  // test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   let cardanoWallet = cardano.getAccountFromMnemonic(String(process.env.DAEDLUS_KEY));
-  //   await cardanoWallet.initialize();
-  //   assert(cardanoWallet.generateBaseAddress() === "addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v", "generated address doesn't match with the expected address ");
-  // });
+  test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    let cardanoWallet = cardano.getAccountFromMnemonic(
+      String(process.env.DAEDLUS_KEY),
+    );
+    await cardanoWallet.initialize();
+    assert(
+      cardanoWallet.generateBaseAddress() ===
+        'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+      "generated address doesn't match with the expected address ",
+    );
+  });
 
-  // test('6.estimate must return a deterministic price of two tokens', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   await cardano.init();
+  test('6.estimate must return a deterministic price of two tokens', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    await cardano.init();
 
-  //   let estimatedPrice = await cardano.estimate(
-  //     'ADA',
-  //     'IAG',
-  //     BigNumber(300),
-  //     false, // true to reverse the trade
-  //     '5',
-  //   );
-  //   console.log(estimatedPrice);
-  // });
+    let estimatedPrice = await cardano.estimate(
+      'ADA',
+      'IAG',
+      BigNumber(300),
+      false, // true to reverse the trade
+      '5',
+    );
+    console.log(estimatedPrice);
+    assert(estimatedPrice);
+  });
 
-  // test('7.tx related functions must return the expected transactions', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
-  //   await cardano.init();
+  test('7.tx related functions must return the expected transactions', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
+    await cardano.init();
 
-  //   let txByHash = await cardano.getTx(
-  //     '1d91de83375db664a59772ab820e51c34ed6990bd9b4c836b12484d5bbeee3f9',
-  //   );
-  //   // let txStateByHash = await cardano.getTxState(
-  //   //   '1d91de83375db664a59772ab820e51c34ed6990bd9b4c836b12484d5bbeee3f9',
-  //   // ); // not working
-  //   let addressTxs = await cardano.getAddressTxs(
-  //     'addr1q96pqnx4ef3g3swa9c3wuhy8flw0cxup396x9kg32dykgvx70pn0u5rga0euslwdk45d555d5hwttajemxmqqy88g58sxll9gv',
-  //   );
+    let txByHash = await cardano.getTx(
+      '1d91de83375db664a59772ab820e51c34ed6990bd9b4c836b12484d5bbeee3f9',
+    );
 
-  //   console.log(txByHash);
-  //   // console.log(txStateByHash);
-  //   console.log(addressTxs);
-  // });
+    let addressTxs = await cardano.getAddressTxs(
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+    );
 
-  // test('8.pool fetchers must return expected pools', async () => {
-  //   const cardano = Cardano.getInstance('Mainnet', 'test');
+    console.log(txByHash);
+    console.log(addressTxs);
 
-  //   await cardano.init();
+    assert(txByHash && addressTxs);
+  });
 
-  //   let pairPool = cardano.getPoolByPair('ADA', 'HUNT');
+  test('8.pool fetchers must return expected pools', async () => {
+    const cardano = Cardano.getInstance('Mainnet', 'test');
 
-  //   let pairLatestPools = await cardano.fetchLatestPoolByToken('ADA', 'HUNT');
+    await cardano.init();
 
-  //   console.log(pairPool);
+    let pairPool = cardano.getPoolByPair('ADA', 'HUNT');
 
-  //   console.log(pairLatestPools);
-  // });
+    let pairLatestPools = await cardano.fetchLatestPoolByToken('ADA', 'HUNT');
+
+    console.log(pairPool);
+
+    console.log(pairLatestPools);
+  });
 
   test('swap should perform a swap and return a TradeResponse', async () => {
     const cardano = Cardano.getInstance('Mainnet', 'test');
     await cardano.init();
-    const wallet = cardano.getAccountFromMnemonic(
-      String(process.env.DAEDLUS_KEY),
-    );
-    await wallet.initialize();
+
+    await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
+    let userAddress =
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
+
+    let oldAdaBal = await cardano.getAdaBalance(userAddress);
+    let oldSplashBal = await cardano.getAssetBalance(userAddress, 'SPLASH');
+
     const result = await cardano.swap(
-      wallet,
       'ADA',
-      'HUNT',
-      BigNumber(3),
+      'SPLASH',
+      BigNumber(0.4),
       true,
       '5',
     );
+
+    console.log('swap tx hash : ', result.txHash);
+
+    let newAdaBal = await cardano.getAdaBalance(userAddress);
+    let newSplashBal = await cardano.getAssetBalance(userAddress, 'SPLASH');
+
+    console.log(
+      `old balances \n ada : ${oldAdaBal} \n splash : ${oldSplashBal} \n new balance : \n ada : ${newAdaBal} \n splash : ${newSplashBal}`,
+    );
+
     assert(
-      result.txHash === 'mock_tx_hash',
-      'Expected swap to return a TradeResponse with txHash',
+      oldAdaBal > newAdaBal && oldSplashBal < newSplashBal,
+      'expected new token balance to be greater than old balance',
     );
   });
 

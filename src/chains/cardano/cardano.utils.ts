@@ -9,7 +9,7 @@ import {
   Network,
   SplashBuilder,
   SplashApi,
-  MaestroExplorer, 
+  MaestroExplorer,
   stringToHex,
   SplashBackend,
   BuilderLegacy,
@@ -19,7 +19,7 @@ import {
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
-import { poolNftNames,  SplashInstance } from './types/node.types';
+import { poolNftNames, SplashInstance } from './types/node.types';
 import dotenv from 'dotenv';
 import LRUCache from 'lru-cache';
 import { getCardanoConfig } from './cardano.config';
@@ -41,8 +41,10 @@ export function getSplashInstance(
 ): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
-  return SplashBuilder(SplashApi({network : splashNetwork}), MaestroExplorer.new(splashNetwork, ""));
-  
+  return SplashBuilder(
+    SplashApi({ network: splashNetwork }),
+    MaestroExplorer.new(splashNetwork, String(process.env.MAESTRO_API_KEY)),
+  );
 }
 
 export function getAssetsFromPools(
@@ -52,14 +54,14 @@ export function getAssetsFromPools(
 
   // adding ada token as the first token
   let ada = Currency.ada(BigInt(0));
-  ada.asset.nameBase16 = '414441';
-  ada.asset.nameCbor = '40';
+
   tokens['ADA'] = {
     token: ada,
     policyId: '',
     decimals: 6,
     name: 'ADA',
     symbol: 'ADA',
+    nameBase16: '414441'
   };
 
   /**
@@ -87,6 +89,7 @@ export function getAssetsFromPools(
       decimals: 1,
       symbol: token.asset.name.toUpperCase(),
       name: token.asset.name.toUpperCase(),
+      nameBase16: token.asset.nameBase16,
       splashSupport: true,
     };
   };
