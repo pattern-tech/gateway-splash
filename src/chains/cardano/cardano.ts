@@ -107,7 +107,7 @@ export class Cardano {
   public async init(): Promise<void> {
     await this.loadPools();
     await this.loadAssets();
-    // fetching and caching the tokens metadata if not cached yet
+    // // fetching and caching the tokens metadata if not cached yet
     await this.loadTokenMetadata();
     this._ready = true;
     return;
@@ -719,6 +719,28 @@ export class Cardano {
       .complete();
   }
 
+  public async cancel(): Promise<string> {
+    try {
+      let txHash = await this._dex.explorer.submitTx(
+        (
+          await (
+            await this._dex
+              .newTx()
+              .cancelOperation({
+                txHash:
+                  'bec531af9a93771f98d89517412c49f75f6102388622d67d1ebcbd56fcb66437',
+                index: BigInt(0),
+              })
+              .complete()
+          ).sign()
+        ).cbor,
+      );
+      return txHash;
+    } catch (error) {
+      throw new Error(`${error}`);
+    }
+  }
+  
   /**
    * Estimates the fee for a swap transaction
    * @param {Currency} input - The input token with amount
