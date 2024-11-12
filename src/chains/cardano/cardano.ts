@@ -74,6 +74,7 @@ export class Cardano {
   public minFee: number;
   public controller: CardanoController;
   private utxosLimit: number;
+  // private timeout: number;
   private defaultSlippage: TradeSlippage;
 
   /**
@@ -94,7 +95,7 @@ export class Cardano {
     this._dex = getSplashInstance(network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
-    this.utxosLimit = Number(config.network.utxosLimit); // maximum number of utxos to fetch.
+    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
     // this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
@@ -151,7 +152,7 @@ export class Cardano {
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
-        const config = getCardanoConfig(network);
+        const config = getCardanoConfig(network );
         Cardano._instances = new LRUCache<string, Cardano>({
           max: Number(config.network.maxLRUCacheInstances),
         });

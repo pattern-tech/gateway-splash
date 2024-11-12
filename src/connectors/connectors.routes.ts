@@ -24,6 +24,7 @@ import { KujiraConfig } from './kujira/kujira.config';
 import { OsmosisConfig } from '../chains/osmosis/osmosis.config';
 import { CarbonConfig } from './carbon/carbon.config';
 import { BalancerConfig } from './balancer/balancer.config';
+import {SplashConfig} from "./splash/splash.config";
 
 export namespace ConnectorsRoutes {
   export const router = Router();
@@ -182,6 +183,12 @@ export namespace ConnectorsRoutes {
             trading_type: BalancerConfig.config.tradingTypes,
             chain_type: BalancerConfig.config.chainType,
             available_networks: BalancerConfig.config.availableNetworks,
+          },
+          {
+            name: 'splash',
+            trading_type: SplashConfig.config.tradingTypes,
+            chain_type: SplashConfig.config.chainType,
+            available_networks: SplashConfig.config.availableNetworks,
           },
         ],
       });
