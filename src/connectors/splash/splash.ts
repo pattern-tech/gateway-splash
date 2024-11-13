@@ -77,6 +77,7 @@ export class Splash {
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
+        true,
         req.allowedSlippage as TradeSlippage,
       );
     else if (req.side === 'BUY')
@@ -84,6 +85,7 @@ export class Splash {
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
+        false,
         req.allowedSlippage as TradeSlippage,
       );
     else
@@ -91,6 +93,7 @@ export class Splash {
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
+        true,
         req.allowedSlippage as TradeSlippage,
       );
   }
@@ -102,36 +105,27 @@ export class Splash {
    * @param trade Expected trade
    */
   async executeTrade(req: TradeRequest) {
-    const account = await this.cardano.getAccountFromAddress(
-      req.address as unknown as string,
-    );
     if (req.side === 'SELL')
       return this.cardano.swap(
-        account,
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
-        req.limitPrice,
         true,
-        req.allowedSlippage as TradeSlippage,
+        req.allowedSlippage as TradeSlippage
       );
     else if (req.side === 'BUY')
       return this.cardano.swap(
-        account,
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
-        req.limitPrice,
         false,
         req.allowedSlippage as TradeSlippage,
       );
     else
       return this.cardano.swap(
-        account,
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
-        req.limitPrice,
         false,
         req.allowedSlippage as TradeSlippage,
       );

@@ -26,7 +26,7 @@ export interface PriceResponse {
   expectedAmount: string;
   price: string;
   network: string;
-  timestamp: string;
+  timestamp: number;
   latency: number;
   gasPrice: number;
   gasPriceToken: string;
@@ -74,14 +74,14 @@ export interface TradeRequest extends NetworkSelectionRequest {
 
 export interface TradeResponse {
   network: string;
-  timestamp: string;
+  timestamp: number;
   latency: number;
   base: string;
   quote: string;
   amount: string; // traderequest.amount
   finalAmountReceived?: string; // Cosmos
   rawAmount: string;
-  finalAmountReceived_baseToken?: string; // Cosmos
+  finalAmountReceived_basetoken?: string; // Cosmos
   expectedIn?: string;
   expectedOut?: string;  // Cosmos: expectedAmountReceived
   expectedPrice?: string;  // Cosmos
@@ -102,7 +102,7 @@ export interface AddLiquidityRequest extends NetworkSelectionRequest { // now al
   amount0: string;
   amount1: string;
   fee?: string;
-  lowerPrice?: string; // integer as string  // COSMOS - using this != undefined then call addpositionLP(), else: addposition() 
+  lowerPrice?: string; // integer as string  // COSMOS - using this != undefined then call addpositionLP(), else: addposition()
   upperPrice?: string; // integer as string
   tokenId?: number; // COSMOS: poolId - will select one for you if not provided
   nonce?: number;

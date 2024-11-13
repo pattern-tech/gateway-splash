@@ -33,8 +33,6 @@
 //  * getTxState // server error
 
 import { Cardano } from './cardano';
-import { BigNumber } from 'bignumber.js';
-import { CardanoWallet } from './wallet.service';
 import assert from 'assert';
 import dotenv from 'dotenv';
 dotenv.config({ path: '../../../.env' });
