@@ -7,14 +7,23 @@ import {
 import {
   Currency,
   Network,
-  Splash,
+  SplashBuilder,
   SplashApi,
-  SplashRemoteCollaterals,
+  MaestroExplorer,
   stringToHex,
+  SplashBackend,
+  BuilderLegacy,
+  Dictionary,
+  Operation,
+  Api,
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
-import { poolNftNames, SplashClientType } from './types/node.types';
+import { poolNftNames, SplashInstance } from './types/node.types';
+import dotenv from 'dotenv';
+import LRUCache from 'lru-cache';
+import { getCardanoConfig } from './cardano.config';
+dotenv.config({ path: '../../../.env' });
 
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
@@ -29,29 +38,30 @@ export function getMaestroConfig(
 
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
-): Splash<SplashClientType> {
+): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
-  return Splash.new(SplashApi.new(splashNetwork), splashNetwork, {
-    remoteCollaterals: SplashRemoteCollaterals.new(),
-  });
+  return SplashBuilder(
+    SplashApi({ network: splashNetwork }),
+    MaestroExplorer.new(splashNetwork, String(process.env.MAESTRO_API_KEY)),
+  );
 }
 
-export async function getAssetsFromPools(
-  maestroClient: MaestroClient,
+export function getAssetsFromPools(
   splashPools: Record<string, SplashPool[]>,
-): Promise<Record<string, CardanoToken>> {
+): Record<string, CardanoToken> {
   let tokens: Record<string, CardanoToken> = {};
 
   // adding ada token as the first token
   let ada = Currency.ada(BigInt(0));
-  ada.asset.nameBase16 = '414441';
+
   tokens['ADA'] = {
     token: ada,
     policyId: '',
     decimals: 6,
     name: 'ADA',
     symbol: 'ADA',
+    nameBase16: '414441'
   };
 
   /**
@@ -72,49 +82,26 @@ export async function getAssetsFromPools(
    * - '4e4654' (hex for 'NFT')
    * - '414441' (hex for 'ADA')
    */
-  Object.values(splashPools).forEach((pools) =>
-    pools.map(async (pool) => {
-      for (let i = 0; 1 < 2; i++) {
-        if (
-          pool.x.asset.name != '' ||
-          !String(pool.nft.nameBase16).includes('414441')
-        ) {
-          let metadata = await getTokenMetadata(
-            pool.x.asset.policyId,
-            pool.x.asset.name, // will be converted to hex, not case sensitive
-            maestroClient,
-          );
-          tokens[stringToHex(pool.x.asset.name)] = {
-            token: pool.x,
-            policyId: pool.x.asset.policyId,
-            decimals: metadata?.decimals ?? 6,
-            symbol: metadata?.ticker ?? pool.x.asset.name.toUpperCase(),
-            name: pool.x.asset.name.toUpperCase(),
-
-            splashSupport: true,
-          };
-        }
-        if (
-          pool.y.asset.name != '' ||
-          !String(pool.nft.nameBase16).includes('414441')
-        ) {
-          let metadata = await getTokenMetadata(
-            pool.y.asset.policyId,
-            pool.y.asset.name, // will be converted to hex, not case sensitive
-            maestroClient,
-          );
-          tokens[stringToHex(pool.y.asset.name)] = {
-            token: pool.y,
-            policyId: pool.y.asset.policyId,
-            decimals: metadata?.decimals ?? 6,
-            symbol: metadata?.ticker ?? pool.y.asset.name.toUpperCase(),
-            name: pool.y.asset.name.toUpperCase(),
-            splashSupport: true,
-          };
-        }
+  let addToAssetMap = (token: Currency) => {
+    tokens[token.asset.name.toUpperCase()] = {
+      token: token,
+      policyId: token.asset.policyId,
+      decimals: 1,
+      symbol: token.asset.name.toUpperCase(),
+      name: token.asset.name.toUpperCase(),
+      nameBase16: token.asset.nameBase16,
+      splashSupport: true,
+    };
+  };
+  Object.values(splashPools).forEach((pools) => {
+    pools.forEach((pool) => {
+      if (pool.x.asset.name !== '') {
+        addToAssetMap(pool.x);
+      } else if (pool.y.asset.name !== '') {
+        addToAssetMap(pool.y);
       }
-    }),
-  );
+    });
+  });
 
   return tokens;
 }
@@ -124,22 +111,115 @@ export function getNftBase16Names(
   quoteName16: string,
 ): poolNftNames {
   return {
-    baseToQuote: baseName16 + '5f' + quoteName16 + '4e4654',
-    quoteToBase: quoteName16 + '5f' + baseName16 + '4e4654',
+    baseToQuote: baseName16 + '5f' + quoteName16 + '5f4e4654',
+    quoteToBase: quoteName16 + '5f' + baseName16 + '5f4e4654',
   };
 }
-async function getTokenMetadata(
+
+export async function getTokenMetadata(
   policyId: string,
   name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
-  return (
-    await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
-  ).data.token_registry_metadata;
+  if (['LOVELACE', 'ADA'].includes(name.toUpperCase())) {
+    return {
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'ADA',
+      ticker: 'ADA',
+      url: '',
+    };
+  }
+  try {
+    return (
+      await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
+    ).data.token_registry_metadata;
+  } catch (error) {
+    // 429
+    // 403
+    return undefined;
+  }
+}
+
+/**
+ * Fetches metadata for tokens in batches using Promise.all
+ * @param {CardanoToken[]} tokens - The array of CardanoTokens
+ * @param {MaestroClient} maestroClient - The Maestro node object
+ * @returns {Promise<LRUCache<string, TokenRegistryMetadata>>} The fetched metadata
+ */
+export async function getTokenMetadataWithBackoff(
+  tokens: CardanoToken[],
+  maestroClient: MaestroClient,
+): Promise<LRUCache<string, TokenRegistryMetadata>> {
+  const config = getCardanoConfig('Mainnet');
+  const metadata = new LRUCache<string, TokenRegistryMetadata>({
+    max: Number(config.network.maxLRUCacheInstances),
+  });
+
+  const batchSize = 50;
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  const fetchMetadata = async (token: CardanoToken): Promise<void> => {
+    if (
+      metadata.has(token.name.toUpperCase()) ||
+      ['ADA', 'LOVELACE'].includes(token.name.toUpperCase())
+    ) {
+      return;
+    }
+
+    try {
+      const assetInfo = await maestroClient.assets.assetInfo(
+        `${token.policyId}${token.token.asset.nameBase16}`,
+      );
+      const tokenMetadata = assetInfo.data.token_registry_metadata || {
+        decimals: 0,
+        description: '',
+        logo: '',
+        name: token.name.toUpperCase(),
+        ticker: token.name.toUpperCase(),
+        url: '',
+      };
+      metadata.set(token.name.toUpperCase(), tokenMetadata);
+    } catch (error) {
+      if (
+        String(error).includes('code 429') ||
+        String(error).includes('code 403')
+      ) {
+        await delay(1000);
+        return fetchMetadata(token);
+      } else if (String(error).includes('code 404')) {
+        metadata.set(token.name.toUpperCase(), {
+          decimals: 1,
+          description: '',
+          logo: '',
+          name: token.name.toUpperCase(),
+          ticker: token.name.toUpperCase(),
+          url: '',
+        });
+      } else {
+        console.error(`Error fetching metadata for ${token.name}:`, error);
+      }
+    }
+  };
+
+  for (let i = 0; i < tokens.length; i += batchSize) {
+    const batch = tokens.slice(i, i + batchSize);
+    await Promise.all(batch.map((token) => fetchMetadata(token)));
+    console.log(`Processed ${i + batch.length} out of ${tokens.length} tokens`);
+
+    // Add a small delay between batches to avoid overwhelming the API
+    if (i + batchSize < tokens.length) {
+      await delay(500);
+    }
+  }
+
+  return metadata;
 }
 
 export async function getSplashPools(
-  splashClient: Splash<SplashClientType>,
+  splashClient: SplashInstance,
 ): Promise<Record<string, SplashPool[]>> {
   // loading pools
   let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({
@@ -149,8 +229,9 @@ export async function getSplashPools(
 
   let poolMap: Record<string, SplashPool[]> = {};
 
-  verifiedPools.map(async (pool) => {
-    // saving the pool id into pools
+  verifiedPools.forEach((pool) => {
+    poolMap[String(pool.nft.nameBase16)] =
+      poolMap[String(pool.nft.nameBase16)] || [];
     poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair
   });
 

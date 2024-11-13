@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "skipLibCheck": true,
     "strict": true,
     "types": ["jest", "node"],
     "target": "es6",
@@ -23,7 +24,8 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "typeRoots": ["node_modules/@types", "src/@types, node_modules/@dcspark/cardano-multiplatform-lib-browser"],
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": ["node_modules/@types", "src/@types, node_modules/@dcspark/cardano-multiplatform-lib-nodejs", "node_modules/@splashprotocol/sdk/src"],
     "downlevelIteration": true
   },
   "exclude": ["node_modules"],
@@ -31,6 +33,6 @@
     "src/**/*.ts",
     "src/**/*.js",
     "test/**/*.ts",
-    "integration-test/**/*.ts", 
+    "integration-test/**/*.ts", "src/chains/cardano/test_index.ts", 
   ]
 }

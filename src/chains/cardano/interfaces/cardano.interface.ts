@@ -18,33 +18,25 @@ export interface PollRequest {
   txHash: string;
 }
 
-export interface NonceResponse {}
-
-export interface NonceRequest {}
-
-export interface TokenResponse {}
-
-export interface TokenRequest {}
-
-export interface BalancesResponse {}
-
 export interface BalancesRequest {
   address: string;
 }
 
+
 export interface CardanoToken {
-    token: Currency,
-    policyId: string,
-    decimals: number,
-    name: string,
-    symbol: string
-    splashSupport?: boolean
+  token: Currency;
+  policyId: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+  nameBase16?: string;
+  splashSupport?: boolean;
 }
 
 export interface CardanoNetworkConfig {
   name: string;
   nodeURL: string;
-  timeOut: number;
+  // timeOut: number;
   maxLRUCacheInstances: number;
   utxosLimit: number;
   defaultSlippage: string;
@@ -54,7 +46,7 @@ export interface CardanoConfig {
 }
 
 export interface CardanoConnectedInstance {
-    [name: string]: Cardano;
+  [name: string]: Cardano;
 }
 
 export interface TxRequestParams {
@@ -63,3 +55,4 @@ export interface TxRequestParams {
   sortDirection?: UtxosByAddressOrderEnum,
   asset? : string
 }
+

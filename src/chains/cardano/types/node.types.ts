@@ -1,6 +1,7 @@
-import { Dictionary, Operation } from '@splashprotocol/sdk';
+import { Utxo } from '@maestro-org/typescript-sdk';
+import { Api, BuilderLegacy, Dictionary, Operation, SplashBackend } from '@splashprotocol/sdk';
 
-export type SplashClientType = Dictionary<Operation<any>>;
+export type SplashInstance = BuilderLegacy<Api<SplashBackend>, Dictionary<Operation<any, Api<SplashBackend>, any>>>;
 
 export type SplashToken = {
   address: string;
