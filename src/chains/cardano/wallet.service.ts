@@ -69,7 +69,7 @@ export class CardanoWallet {
   }
 
   // Generates a base address by combining the payment and stake keys
-  public generateBaseAddress(): string | null {
+  public generateBaseAddress(): string | undefined {
     if (!this.accountKey) {
       throw new Error('Wallet is not initialized.');
     }

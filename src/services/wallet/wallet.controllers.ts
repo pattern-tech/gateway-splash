@@ -35,6 +35,7 @@ import {
 import { Ethereumish, Tezosish } from '../common-interfaces';
 import { Algorand } from '../../chains/algorand/algorand';
 import { Osmosis } from '../../chains/osmosis/osmosis';
+import { Cardano } from '../../chains/cardano/cardano';
 
 export function convertXdcAddressToEthAddress(publicKey: string): string {
   return publicKey.length === 43 && publicKey.slice(0, 3) === 'xdc'
@@ -157,6 +158,10 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
+    } else if (connection instanceof Cardano) {
+      const account = connection.getAccountFromMnemonic(req.privateKey);
+      address = account.generateBaseAddress();
+      encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
     }
 
     if (address === undefined || encryptedPrivateKey === undefined) {
