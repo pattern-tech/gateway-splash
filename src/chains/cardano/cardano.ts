@@ -132,10 +132,7 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(
-    network: string,
-    name?: string,
-  ): Cardano {
+  public static getInstance(network: string, name?: string): Cardano {
     try {
       const instanceName =
         name ||
@@ -161,7 +158,10 @@ export class Cardano {
 
       const config = getCardanoConfig(network);
 
-      Cardano._instances.set(instanceName, new Cardano(network as MaestroSupportedNetworks, config, 1, {}));
+      Cardano._instances.set(
+        instanceName,
+        new Cardano(network as MaestroSupportedNetworks, config, 1, {}),
+      );
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
 
@@ -282,10 +282,12 @@ export class Cardano {
    * @param {string} mnemonic - The mnemonic phrase
    * @returns {CardanoAccount}
    */
-  public getAccountFromMnemonic(mnemonic: string): CardanoWallet {
+  public async getAccountFromMnemonic(
+    mnemonic: string,
+  ): Promise<CardanoWallet> {
     let wallet = new CardanoWallet(mnemonic);
 
-    wallet.initialize();
+    await wallet.initialize();
 
     return wallet;
   }
@@ -728,23 +730,22 @@ export class Cardano {
       .complete();
   }
 
-  public async cancel(): Promise<string> {
+  public async cancel(txHash: string, index: number = 0): Promise<string> {
     try {
-      let txHash = await this._dex.explorer.submitTx(
+      let cancelTxHash = await this._dex.explorer.submitTx(
         (
           await (
             await this._dex
               .newTx()
               .cancelOperation({
-                txHash:
-                  'bec531af9a93771f98d89517412c49f75f6102388622d67d1ebcbd56fcb66437',
-                index: BigInt(0),
+                txHash,
+                index,
               })
               .complete()
           ).sign()
         ).cbor,
       );
-      return txHash;
+      return cancelTxHash;
     } catch (error) {
       throw new Error(`${error}`);
     }
