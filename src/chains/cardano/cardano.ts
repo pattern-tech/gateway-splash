@@ -74,18 +74,25 @@ export class Cardano {
    * Synchronously Creates an instance of Cardano.
    * @param {CardanoNetwork} network - The Cardano network to connect to ('mainnet', 'preprod' or 'testnet')
    */
-  private constructor(
-    network: MaestroSupportedNetworks,
+  public constructor(
+    network: string,
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
   ) {
-    this._network = network;
+    let new_network: MaestroSupportedNetworks
+    if (network === 'mainnet'){
+      new_network = "Mainnet"
+    }else if ('preprod')
+      new_network = "Preprod"
+    else
+      new_network = "Preview"
+    this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(network, config.network.nodeURL),
+      getMaestroConfig(new_network, config.network.nodeURL),
     );
 
-    this._dex = getSplashInstance(network);
+    this._dex = getSplashInstance(new_network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
