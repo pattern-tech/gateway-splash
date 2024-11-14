@@ -1,6 +1,7 @@
 import { Currency } from "@splashprotocol/sdk";
 import { Cardano } from "../cardano";
 import { UtxosByAddressOrderEnum } from "@maestro-org/typescript-sdk";
+import {NetworkSelectionRequest} from "../../../services/common-interfaces";
 
 export interface PollResponse {}
 
@@ -18,8 +19,9 @@ export interface PollRequest {
   txHash: string;
 }
 
-export interface BalancesRequest {
+export interface BalancesRequest extends NetworkSelectionRequest {
   address: string;
+  privateKey: string;
 }
 
 
@@ -33,6 +35,12 @@ export interface CardanoToken {
   splashSupport?: boolean;
 }
 
+export interface CardanoTokenResponse {
+  decimals: number;
+  name: string;
+  symbol: string;
+}
+
 export interface CardanoNetworkConfig {
   name: string;
   nodeURL: string;
@@ -43,6 +51,10 @@ export interface CardanoNetworkConfig {
 }
 export interface CardanoConfig {
   network: CardanoNetworkConfig;
+}
+
+export interface AssetsResponse {
+  assets: CardanoTokenResponse[];
 }
 
 export interface CardanoConnectedInstance {

@@ -49,7 +49,6 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
-import { sha256 } from '@ethersproject/solidity';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -138,11 +137,7 @@ export class Cardano {
   ): Cardano {
     try {
       const instanceName =
-        name ||
-        sha256(
-          ['number', 'string'] as const,
-          [Date.now(), String(network)] as const,
-        ).slice(0, 16);
+        name || network
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
@@ -278,10 +273,10 @@ export class Cardano {
    * @param {string} mnemonic - The mnemonic phrase
    * @returns {CardanoAccount}
    */
-  public getAccountFromMnemonic(mnemonic: string): CardanoWallet {
+  public async getAccountFromMnemonic(mnemonic: string): Promise<CardanoWallet> {
     let wallet = new CardanoWallet(mnemonic);
 
-    wallet.initialize();
+    await wallet.initialize();
 
     return wallet;
   }
@@ -480,7 +475,6 @@ export class Cardano {
 
     let balance = assets['ADA'];
     delete assets['ADA'];
-
     return { balance, assets };
   }
 

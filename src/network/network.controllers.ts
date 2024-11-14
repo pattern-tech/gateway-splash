@@ -23,6 +23,7 @@ import {
 } from '../services/connection-manager';
 import { Osmosis } from '../chains/osmosis/osmosis';
 import { XRPL } from '../chains/xrpl/xrpl';
+import {Cardano} from "../chains/cardano/cardano";
 
 export async function getStatus(
   req: StatusRequest,
@@ -125,6 +126,11 @@ export async function getStatus(
     const osmosisConnections = Osmosis.getConnectedInstances();
     connections = connections.concat(
       osmosisConnections ? Object.values(osmosisConnections) : [],
+    );
+
+    const cardanoConnections = Cardano.getConnectedInstances();
+    connections = connections.concat(
+      cardanoConnections ? Object.values(cardanoConnections) : [],
     );
   }
 

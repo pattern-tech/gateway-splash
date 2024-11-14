@@ -30,22 +30,22 @@
 `transfer` = ~~impl~~
 
 
-## Ergo controller
+## Cardano controller
 
 `pool`:
-    - ergo.init
-    - ergo.getPool
+    - cardano.init
+    - cardano.getPool
 `poll`: 
-    - ergo.init
-    - ergo.getTx
+    - cardano.init
+    - cardano.getTx
 `balances` + `Allowances`: 
-    - ergo.init
-    - ergo.balances
-    - ergo.getAddressUnspentBoxes -> getAddressUTXOs
-    - ergo.getBalance
+    - cardano.init
+    - cardano.balances
+    - cardano.getAddressUnspentBoxes -> getAddressUTXOs
+    - cardano.getBalance
 
 `getTokens`:
-    - ergo.sortedAssetList
+    - cardano.sortedAssetList
 
 ~~transfer~~
  
