@@ -95,7 +95,7 @@ export class Cardano {
     this._dex = getSplashInstance(network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
-    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
+    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
     // this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
@@ -152,7 +152,7 @@ export class Cardano {
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
-        const config = getCardanoConfig(network );
+        const config = getCardanoConfig(network);
         Cardano._instances = new LRUCache<string, Cardano>({
           max: Number(config.network.maxLRUCacheInstances),
         });
@@ -267,16 +267,20 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
-    let utxos: Array<UtxoWithSlot> = [];
-    utxos = (
-      await this._node.addresses.utxosByAddress(address, {
-        count: params?.limit || this.utxosLimit,
-        order: params?.sortDirection || 'desc',
-        cursor: params?.offset || null,
-        asset: params?.asset || null,
-      })
-    ).data;
-    return utxos;
+    try {
+      let utxos: Array<UtxoWithSlot> = [];
+      utxos = (
+        await this._node.addresses.utxosByAddress(address, {
+          count: params?.limit || this.utxosLimit,
+          order: params?.sortDirection || 'desc',
+          cursor: params?.offset || null,
+          asset: params?.asset || null,
+        })
+      ).data;
+      return utxos;
+    } catch (err) {
+      throw new Error(String(err));
+    }
   }
 
   /**
@@ -463,21 +467,31 @@ export class Cardano {
    * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
    * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
    */
-  public getBalance(utxos: UtxoWithSlot[]) {
+  public getBalance(utxos: UtxoWithSlot[]): {
+    balance: BigNumber;
+    assets: Record<string, BigNumber>;
+  } {
     const assets: Record<string, BigNumber> = {};
 
     for (const utxo of utxos) {
       for (const asset of utxo.assets) {
         const { unit, amount } = asset;
+
         const isAda = unit.toUpperCase() === 'LOVELACE';
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
         const tokenDecimals = isAda
           ? 6
-          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
+          : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
+            0);
+        if (assets[tokenName] === undefined) {
+          assets[tokenName] = BigNumber(0);
+        }
 
         assets[tokenName] = BigNumber(
           this.fromRaw(
-            (assets[tokenName] || BigNumber(0)).plus(BigNumber(amount)),
+            BigNumber(this.toRaw(assets[tokenName], tokenDecimals)).plus(
+              BigNumber(amount),
+            ),
             tokenDecimals,
           ),
         );
@@ -741,7 +755,7 @@ export class Cardano {
       throw new Error(`${error}`);
     }
   }
-  
+
   /**
    * Estimates the fee for a swap transaction
    * @param {Currency} input - The input token with amount
