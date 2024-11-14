@@ -11,11 +11,6 @@ import {
   SplashApi,
   MaestroExplorer,
   stringToHex,
-  SplashBackend,
-  BuilderLegacy,
-  Dictionary,
-  Operation,
-  Api,
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';

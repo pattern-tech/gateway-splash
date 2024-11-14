@@ -23,16 +23,11 @@ import {
 import fse from 'fs-extra';
 import {
   AssetInfo,
-  bytesToString,
   Currency,
   hexToString,
   Price,
-  SplashApi,
-  SplashBuilder,
-  MaestroExplorer,
   stringToHex,
   Transaction,
-  UTxO,
   selectEstimatedPrice,
   HotWallet,
 } from '@splashprotocol/sdk';
@@ -55,7 +50,6 @@ import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 import { sha256 } from '@ethersproject/solidity';
-import { TransactionUnspentOutput } from '@dcspark/cardano-multiplatform-lib-browser';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -139,7 +133,7 @@ export class Cardano {
    * @static
    */
   public static getInstance(
-    network: MaestroSupportedNetworks,
+    network: string,
     name?: string,
   ): Cardano {
     try {
@@ -167,7 +161,7 @@ export class Cardano {
 
       const config = getCardanoConfig(network);
 
-      Cardano._instances.set(instanceName, new Cardano(network, config, 1, {}));
+      Cardano._instances.set(instanceName, new Cardano(network as MaestroSupportedNetworks, config, 1, {}));
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
 
@@ -914,7 +908,7 @@ export class Cardano {
 
     return {
       network: this._network,
-      timestamp: await this.getBlockTimestamp(),
+      timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
       base: baseToken.symbol,
       quote: quoteToken.symbol,
@@ -977,7 +971,7 @@ export class Cardano {
       expectedAmount: this.toRaw(minOutput, decimals),
       price,
       network: this.network,
-      timestamp: await this.getBlockTimestamp(),
+      timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
