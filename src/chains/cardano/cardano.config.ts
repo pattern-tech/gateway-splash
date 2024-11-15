@@ -11,7 +11,7 @@ export function getCardanoConfig(network: string): CardanoConfig {
   // getting the config manager
   const configManager = ConfigManagerV2.getInstance();
 
-  let _network = String(network).toLowerCase();
+  const _network = String(network).toLowerCase();
 
   return {
     network: {
