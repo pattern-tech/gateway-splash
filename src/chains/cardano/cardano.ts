@@ -95,7 +95,7 @@ export class Cardano {
     this._dex = getSplashInstance(new_network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
-    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getUtxosByAddress`
+    this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
     // this.timeout = config.network.timeOut;
     this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
@@ -138,10 +138,7 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(
-    network: string,
-    name?: string,
-  ): Cardano {
+  public static getInstance(network: string, name?: string): Cardano {
     try {
       const instanceName =
         name || network
@@ -163,7 +160,10 @@ export class Cardano {
 
       const config = getCardanoConfig(network);
 
-      Cardano._instances.set(instanceName, new Cardano(network as MaestroSupportedNetworks, config, 1, {}));
+      Cardano._instances.set(
+        instanceName,
+        new Cardano(network as MaestroSupportedNetworks, config, 1, {}),
+      );
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
 
@@ -263,16 +263,20 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
-    let utxos: Array<UtxoWithSlot> = [];
-    utxos = (
-      await this._node.addresses.utxosByAddress(address, {
-        count: params?.limit || this.utxosLimit,
-        order: params?.sortDirection || 'desc',
-        cursor: params?.offset || null,
-        asset: params?.asset || null,
-      })
-    ).data;
-    return utxos;
+    try {
+      let utxos: Array<UtxoWithSlot> = [];
+      utxos = (
+        await this._node.addresses.utxosByAddress(address, {
+          count: params?.limit || this.utxosLimit,
+          order: params?.sortDirection || 'desc',
+          cursor: params?.offset || null,
+          asset: params?.asset || null,
+        })
+      ).data;
+      return utxos;
+    } catch (err) {
+      throw new Error(String(err));
+    }
   }
 
   /**
@@ -280,7 +284,9 @@ export class Cardano {
    * @param {string} mnemonic - The mnemonic phrase
    * @returns {CardanoAccount}
    */
-  public async getAccountFromMnemonic(mnemonic: string): Promise<CardanoWallet> {
+  public async getAccountFromMnemonic(
+    mnemonic: string,
+  ): Promise<CardanoWallet> {
     let wallet = new CardanoWallet(mnemonic);
 
     await wallet.initialize();
@@ -459,21 +465,31 @@ export class Cardano {
    * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
    * @returns {{ balance: BigNumber, assets: Record<string, BigNumber> }}
    */
-  public getBalance(utxos: UtxoWithSlot[]) {
+  public getBalance(utxos: UtxoWithSlot[]): {
+    balance: BigNumber;
+    assets: Record<string, BigNumber>;
+  } {
     const assets: Record<string, BigNumber> = {};
 
     for (const utxo of utxos) {
       for (const asset of utxo.assets) {
         const { unit, amount } = asset;
+
         const isAda = unit.toUpperCase() === 'LOVELACE';
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
         const tokenDecimals = isAda
           ? 6
-          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
+          : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
+            0);
+        if (assets[tokenName] === undefined) {
+          assets[tokenName] = BigNumber(0);
+        }
 
         assets[tokenName] = BigNumber(
           this.fromRaw(
-            (assets[tokenName] || BigNumber(0)).plus(BigNumber(amount)),
+            BigNumber(this.toRaw(assets[tokenName], tokenDecimals)).plus(
+              BigNumber(amount),
+            ),
             tokenDecimals,
           ),
         );
@@ -715,23 +731,22 @@ export class Cardano {
       .complete();
   }
 
-  public async cancel(): Promise<string> {
+  public async cancel(txHash: string, index: number = 0): Promise<string> {
     try {
-      let txHash = await this._dex.explorer.submitTx(
+      let cancelTxHash = await this._dex.explorer.submitTx(
         (
           await (
             await this._dex
               .newTx()
               .cancelOperation({
-                txHash:
-                  'bec531af9a93771f98d89517412c49f75f6102388622d67d1ebcbd56fcb66437',
-                index: BigInt(0),
+                txHash,
+                index,
               })
               .complete()
           ).sign()
         ).cbor,
       );
-      return txHash;
+      return cancelTxHash;
     } catch (error) {
       throw new Error(`${error}`);
     }
