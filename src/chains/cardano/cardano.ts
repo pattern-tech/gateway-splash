@@ -33,6 +33,7 @@ import {
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
+  generateHash,
   getAssetsFromPools,
   getMaestroConfig,
   getNftBase16Names,
@@ -49,7 +50,6 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
-import { sha256 } from '@ethersproject/solidity';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -134,12 +134,9 @@ export class Cardano {
    */
   public static getInstance(network: string, name?: string): Cardano {
     try {
-      const instanceName =
-        name ||
-        sha256(
-          ['number', 'string'] as const,
-          [Date.now(), String(network)] as const,
-        ).slice(0, 16);
+      const hash = generateHash(Date.now(), String(network));
+
+      const instanceName = name || hash;
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {

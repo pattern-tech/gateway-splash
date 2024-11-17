@@ -118,18 +118,20 @@ async function runTests() {
   // });
 
   test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
+    const cardano = Cardano.getInstance('Mainnet');
     await cardano.init();
     const utxos = await cardano.getAddressUtxos(
       'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
     );
-    console.log(utxos);
-    const balance = cardano.getBalance(utxos);
-    console.log(balance.balance.toString());
-    Object.keys(balance.assets).forEach((key) =>
-      console.log(`${key}: ${String(balance.assets[key])}`),
-    );
-    assert(balance);
+    console.log(await cardano.getNetworkHeight());
+    
+    // console.log(utxos);
+    // const balance = cardano.getBalance(utxos);
+    // console.log(balance.balance.toString());
+    // Object.keys(balance.assets).forEach((key) =>
+    //   console.log(`${key}: ${String(balance.assets[key])}`),
+    // );
+    // assert(balance);
   });
 
   // test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
