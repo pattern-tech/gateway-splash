@@ -18,6 +18,9 @@ import { poolNftNames, SplashInstance } from './types/node.types';
 import dotenv from 'dotenv';
 import LRUCache from 'lru-cache';
 import { getCardanoConfig } from './cardano.config';
+import sha256 from 'crypto-js/sha256';
+import { enc } from 'crypto-js';
+
 dotenv.config({ path: '../../../.env' });
 
 export function getMaestroConfig(
@@ -56,7 +59,7 @@ export function getAssetsFromPools(
     decimals: 6,
     name: 'ADA',
     symbol: 'ADA',
-    nameBase16: '414441'
+    nameBase16: '414441',
   };
 
   /**
@@ -231,4 +234,8 @@ export async function getSplashPools(
   });
 
   return poolMap;
+}
+
+export function generateHash(number: number, networkString: string): string {
+  return sha256(`${number}${networkString}`).toString(enc.Hex).slice(0, 16);
 }
