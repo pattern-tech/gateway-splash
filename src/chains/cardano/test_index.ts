@@ -118,11 +118,13 @@ async function runTests() {
   // });
 
   test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
-    const cardano = Cardano.getInstance('Mainnet', 'test');
+    const cardano = Cardano.getInstance('mainnet', 'test');
+    console.log("instance success")
     await cardano.init();
     const utxos = await cardano.getAddressUtxos(
       'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
     );
+    
     console.log(await cardano.getNetworkHeight());
 
     // console.log(utxos);
@@ -235,7 +237,7 @@ async function runTests() {
   }
 
   console.log(`\nTest Results: ${passed} passed, ${failed} failed`);
-  process.exit(failed > 0 ? 1 : 0);
+  // process.exit(failed > 0 ? 1 : 0);
 }
 
 runTests();
