@@ -33,6 +33,7 @@ import {
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
+  generateHash,
   getAssetsFromPools,
   getMaestroConfig,
   getNftBase16Names,
@@ -140,8 +141,9 @@ export class Cardano {
    */
   public static getInstance(network: string, name?: string): Cardano {
     try {
-      const instanceName =
-        name || network
+      const hash = generateHash(Date.now(), String(network));
+
+      const instanceName = name || hash;
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
