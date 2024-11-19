@@ -8,10 +8,11 @@ import { CardanoConfig } from './interfaces/cardano.interface';
  * @function
  */
 export function getCardanoConfig(network: string): CardanoConfig {
+
   // getting the config manager
   const configManager = ConfigManagerV2.getInstance();
 
-  const _network = String(network).toLowerCase();
+  let _network = network.toLowerCase();
 
   return {
     network: {
