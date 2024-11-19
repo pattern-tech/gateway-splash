@@ -53,7 +53,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
-import { Decimal } from '@bancor/carbon-sdk/utils';
+
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -601,6 +601,7 @@ export class Cardano {
       baseCardanoToken,
       quoteCardanoToken,
       sell,
+      amount,
       priceLimit,
     );
 
@@ -616,7 +617,7 @@ export class Cardano {
       .multipliedBy(BigNumber(10).pow(outputDecimals))
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
-
+    console.log(price, rawPrice)
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
@@ -659,7 +660,7 @@ export class Cardano {
       setTimeout(async () => {
         try {
           const confirmed = await this.checkSatisfaction(hash, index);
-
+          console.log(confirmed)
           if (!confirmed) {
             // cancelling
             const cancelTxHash = await this.cancel(hash, index);
@@ -1001,12 +1002,12 @@ export class Cardano {
       quoteToken,
       sell,
       priceLimit,
-      await this.getPrice(baseToken, quoteToken, sell, priceLimit),
+      await this.getPrice(baseToken, quoteToken, sell, amount, priceLimit),
       '\n',
       decimals,
     );
     let rawPrice = (
-      await this.getPrice(baseToken, quoteToken, sell, priceLimit)
+      await this.getPrice(baseToken, quoteToken, sell, amount, priceLimit)
     ).raw;
 
     let price = BigNumber(rawPrice)
@@ -1086,6 +1087,7 @@ export class Cardano {
     baseToken: CardanoToken,
     quoteToken: CardanoToken,
     sell: boolean,
+    amount: BigNumber,
     priceLimit?: string,
   ): Promise<Price> {
     try {
@@ -1114,7 +1116,9 @@ export class Cardano {
         quote: quoteToken.token.asset,
       });
 
-      const input = (sell ? baseToken : quoteToken).token.withAmount(BigInt(1));
+      let inputToken = (sell ? baseToken : quoteToken);
+
+      const input = inputToken.token.withAmount(BigInt(this.toRaw(amount, inputToken.decimals)));
 
       return selectEstimatedPrice({
         orderBook,
@@ -1122,7 +1126,7 @@ export class Cardano {
         priceType: 'average',
       });
     } catch (error) {
-      throw new Error(`Failed to the estimate the price ${error}`);
+      throw new Error(`Failed to fetch the estimate the price ${error}`);
     }
   }
   /**

@@ -121,31 +121,31 @@ async function runTests() {
   test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
     const cardano = Cardano.getInstance('mainnet');
     await cardano.init();
-    // console.log(cardano.findToken("USDC"))
-    // const utxos = await cardano.getAddressUtxos(
-    //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
-    // );
-    // // console.log(cardano.getBalance(utxos));
-    // console.log(await cardano.getNetworkHeight());
-    // // console.log(await cardano.checkSatisfaction("7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3"))
-    // // await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
+    console.log(cardano.findToken("USDC"))
+    const utxos = await cardano.getAddressUtxos(
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+    );
+    // console.log(cardano.getBalance(utxos));
+    console.log(await cardano.getNetworkHeight());
+    // console.log(await cardano.checkSatisfaction("7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3"))
+    // await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
 
-    // // console.log(
-    // //   await cardano.cancel(
-    // //     '7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3',
-    // //   ),
-    // // );
-    // // console.log(utxos);
-    console.log(await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5'));
+    // console.log(
+    //   await cardano.cancel(
+    //     '7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3',
+    //   ),
+    // );
+    // console.log(utxos);
+    // console.log(await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5'));
     console.log(await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '5'));
 
-    // const balance = cardano.getBalance(utxos);
-    // console.log(balance);
+    const balance = cardano.getBalance(utxos);
+    console.log(balance);
 
-    // Object.keys(balance.assets).forEach((key) =>
-    //   console.log(`${key}: ${String(balance.assets[key])}`),
-    // );
-    // assert(balance);
+    Object.keys(balance.assets).forEach((key) =>
+      console.log(`${key}: ${String(balance.assets[key])}`),
+    );
+    assert(balance);
   });
 
   // test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
@@ -216,31 +216,21 @@ async function runTests() {
   //   let userAddress =
   //     'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
 
-  //   let oldAdaBal = await cardano.getAdaBalance(userAddress);
-  //   let oldSplashBal = await cardano.getAssetBalance(userAddress, 'SPLASH');
+  //   console.log(cardano.getBalance(await cardano.getAddressUtxos(userAddress)));
 
   //   // const result = await cardano.swap(
   //   //   'ADA',
-  //   //   'SPLASH',
-  //   //   BigNumber(0.4),
+  //   //   'USDC',
+  //   //   BigNumber(1),
   //   //   true,
   //   //   '5',
   //   // );
 
-  //   const result = await cardano.cancel();
-  //   console.log('swap tx hash : ', result);
+  //   await cardano.cancel("c16f8d767d7162ba5fdf037f33017a0974ca8ac3fdf12c903bdfb793ee9d9a49");
+  //   // console.log('swap tx hash : ', result);
 
-  //   let newAdaBal = await cardano.getAdaBalance(userAddress);
-  //   let newSplashBal = await cardano.getAssetBalance(userAddress, 'SPLASH');
+  //   console.log(cardano.getBalance(await cardano.getAddressUtxos(userAddress)));
 
-  //   console.log(
-  //     `old balances \n ada : ${oldAdaBal} \n splash : ${oldSplashBal} \n new balance : \n ada : ${newAdaBal} \n splash : ${newSplashBal}`,
-  //   );
-
-  //   assert(
-  //     oldAdaBal > newAdaBal && oldSplashBal < newSplashBal,
-  //     'expected new token balance to be greater than old balance',
-  //   );
   // });
 
   // Run all tests
