@@ -37,6 +37,7 @@ import assert from 'assert';
 import dotenv from 'dotenv';
 import { forEach } from 'mathjs';
 dotenv.config({ path: '../../../.env' });
+import { BigNumber } from 'bignumber.js';
 
 // Simple test runner
 async function runTests() {
@@ -118,16 +119,29 @@ async function runTests() {
   // });
 
   test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
-    const cardano = Cardano.getInstance('Mainnet');
+    const cardano = Cardano.getInstance('mainnet');
     await cardano.init();
-    const utxos = await cardano.getAddressUtxos(
-      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
-    );
-    console.log(await cardano.getNetworkHeight());
-    
-    // console.log(utxos);
+    // console.log(cardano.findToken("USDC"))
+    // const utxos = await cardano.getAddressUtxos(
+    //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+    // );
+    // // console.log(cardano.getBalance(utxos));
+    // console.log(await cardano.getNetworkHeight());
+    // // console.log(await cardano.checkSatisfaction("7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3"))
+    // // await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
+
+    // // console.log(
+    // //   await cardano.cancel(
+    // //     '7d88a74255d1c28e6a1cbb6b43291d10c00a6f741fbfbbac36975cca4948c5c3',
+    // //   ),
+    // // );
+    // // console.log(utxos);
+    console.log(await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5'));
+    console.log(await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '5'));
+
     // const balance = cardano.getBalance(utxos);
-    // console.log(balance.balance.toString());
+    // console.log(balance);
+
     // Object.keys(balance.assets).forEach((key) =>
     //   console.log(`${key}: ${String(balance.assets[key])}`),
     // );

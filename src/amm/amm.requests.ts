@@ -26,7 +26,7 @@ export interface PriceResponse {
   expectedAmount: string;
   price: string;
   network: string;
-  timestamp: number;
+  timestamp: string;
   latency: number;
   gasPrice: number;
   gasPriceToken: string;
@@ -73,8 +73,9 @@ export interface TradeRequest extends NetworkSelectionRequest {
 }
 
 export interface TradeResponse {
+  success: boolean, // cardano: trade satisfaction
   network: string;
-  timestamp: number;
+  timestamp: string;
   latency: number;
   base: string;
   quote: string;
@@ -93,6 +94,7 @@ export interface TradeResponse {
   gasCost: string; // Cosmos: gasUsed
   nonce?: number;
   txHash: string | any | undefined;
+  cancelTxHash: string;
 }
 
 export interface AddLiquidityRequest extends NetworkSelectionRequest { // now also cosmos add swap position OR cosmos add LP position

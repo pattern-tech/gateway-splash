@@ -3,6 +3,7 @@ import {
   CardanoConfig,
   CardanoConnectedInstance,
   CardanoToken,
+  OrderConfirmation,
   TxRequestParams,
 } from './interfaces/cardano.interface';
 
@@ -30,6 +31,7 @@ import {
   Transaction,
   selectEstimatedPrice,
   HotWallet,
+  isOOROrder,
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
@@ -41,6 +43,7 @@ import {
   getSplashPools,
   getTokenMetadata,
   getTokenMetadataWithBackoff,
+  updateTokenMetadata,
 } from './cardano.utils';
 import { SplashPool } from './types/cardano.types';
 import { SplashInstance, TradeSlippage } from './types/node.types';
@@ -50,6 +53,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import { Decimal } from '@bancor/carbon-sdk/utils';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -183,7 +187,18 @@ export class Cardano {
   public get network(): MaestroSupportedNetworks {
     return this._network;
   }
-
+  /**
+   * Checks if the trade is placed and done in the dex.
+   * @param {string} hash -  The transaction hash
+   * @param {number} index - The order tx index
+   * @returns {Promise<boolean>}
+   */
+  public async checkSatisfaction(
+    hash: string,
+    index: number = 0,
+  ): Promise<boolean> {
+    return await isOOROrder(`${hash}:${index}`, this._dex);
+  }
   /**
    * Gets the list of stored assets
    * @returns {Array<CardanoToken>}
@@ -472,6 +487,8 @@ export class Cardano {
 
         const isAda = unit.toUpperCase() === 'LOVELACE';
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
+        console.log(tokenName);
+        console.log(Cardano._tokenMetadata.get(tokenName.toUpperCase()));
         const tokenDecimals = isAda
           ? 6
           : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
@@ -532,6 +549,7 @@ export class Cardano {
     sell: boolean = false,
     slippage: TradeSlippage = this.defaultSlippage,
     priceLimit?: string,
+    orderTimeout: number = 15,
   ): Promise<TradeResponse> {
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
@@ -540,7 +558,7 @@ export class Cardano {
     if (!amount || amount.lte(0)) {
       throw new Error('Invalid swap amount');
     }
-    const [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
+    let [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
       quoteToken,
     );
@@ -562,15 +580,8 @@ export class Cardano {
       );
     }
 
-    [baseCardanoToken.decimals, baseCardanoToken.symbol] = [
-      baseMetadata.decimals,
-      baseMetadata.ticker,
-    ];
-
-    [quoteCardanoToken.decimals, quoteCardanoToken.symbol] = [
-      quoteMetadata.decimals,
-      quoteMetadata.ticker,
-    ];
+    baseCardanoToken = updateTokenMetadata(baseCardanoToken, baseMetadata);
+    quoteCardanoToken = updateTokenMetadata(quoteCardanoToken, quoteMetadata);
 
     const [inputToken, outputToken] = this.createTokens(
       baseCardanoToken,
@@ -586,17 +597,30 @@ export class Cardano {
 
     this.validatePool(poolNftNamesBase16);
 
-    const price = await this.getPrice(
+    const rawPrice = await this.getPrice(
       baseCardanoToken,
       quoteCardanoToken,
       sell,
       priceLimit,
     );
 
+    const decimals = sell
+      ? (baseCardanoToken.decimals as number)
+      : (quoteCardanoToken.decimals as number);
+
+    const outputDecimals = sell
+      ? (quoteCardanoToken.decimals as number)
+      : (baseCardanoToken.decimals as number);
+
+    let price = BigNumber(rawPrice.raw)
+      .multipliedBy(BigNumber(10).pow(outputDecimals))
+      .dividedBy(BigNumber(10).pow(decimals))
+      .toString();
+
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
-      price,
+      rawPrice,
       Number(slippage),
     );
 
@@ -604,12 +628,13 @@ export class Cardano {
 
     const minOutput = this.calculateMinOutput(
       amount,
-      BigNumber(price.raw),
-      outputToken.asset.decimals,
+      BigNumber(price),
       Number(slippage),
     );
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
+
+    let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
 
     return this.createTradeResponse(
       sell ? baseCardanoToken : quoteCardanoToken,
@@ -620,7 +645,34 @@ export class Cardano {
       sell,
       estimatedFee,
       txHash,
+      confirmResult.confirmed,
+      confirmResult.txHash,
     );
+  }
+
+  private async confirmOrder(
+    hash: string,
+    index: number = 0,
+    orderTimeout: number,
+  ): Promise<OrderConfirmation> {
+    return new Promise((resolve) => {
+      setTimeout(async () => {
+        try {
+          const confirmed = await this.checkSatisfaction(hash, index);
+
+          if (!confirmed) {
+            // cancelling
+            const cancelTxHash = await this.cancel(hash, index);
+            resolve({ confirmed: false, txHash: cancelTxHash });
+          } else {
+            resolve({ confirmed: true, txHash: '' });
+          }
+        } catch (error) {
+          // Handle any errors that might occur during checkSatisfaction or cancel
+          resolve({ confirmed: false, txHash: '' });
+        }
+      }, orderTimeout * 1000);
+    });
   }
 
   /**
@@ -788,7 +840,7 @@ export class Cardano {
     sell: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
-    const [realBaseToken, realQuoteToken] = this.validateTokens(
+    let [realBaseToken, realQuoteToken] = this.validateTokens(
       baseToken.toUpperCase(),
       quoteToken.toUpperCase(),
     );
@@ -803,31 +855,21 @@ export class Cardano {
       realQuoteToken.name,
       this._node,
     );
+
+    console.log(quoteMetadata);
+
     if (!baseMetadata || !quoteMetadata) {
       throw new Error(
         "Couldn't find the tokens metadata, try a verified token",
       );
     }
 
-    [
-      realBaseToken.decimals,
-      realBaseToken.symbol,
-      realBaseToken.token.asset.metadata,
-    ] = [
-      baseMetadata.decimals,
-      baseMetadata.ticker,
-      { policyId: realBaseToken.policyId, subject: '', ...baseMetadata },
-    ];
+    console.log(realQuoteToken);
 
-    [
-      realQuoteToken.decimals,
-      realQuoteToken.symbol,
-      realQuoteToken.token.asset.metadata,
-    ] = [
-      quoteMetadata.decimals,
-      quoteMetadata.ticker,
-      { policyId: realQuoteToken.policyId, subject: '', ...quoteMetadata },
-    ];
+    realBaseToken = updateTokenMetadata(realBaseToken, baseMetadata);
+    realQuoteToken = updateTokenMetadata(realQuoteToken, quoteMetadata);
+
+    console.log(realQuoteToken);
 
     return this.createPriceResponse(
       realBaseToken,
@@ -899,26 +941,30 @@ export class Cardano {
     sell: boolean,
     estimatedFee: string,
     txHash: string,
+    success: boolean,
+    cancelTxHash: string = '',
   ): Promise<TradeResponse> {
     const decimals = sell
       ? (baseToken.decimals as number)
       : (quoteToken.decimals as number);
 
     return {
+      success,
       network: this._network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       base: baseToken.symbol,
       quote: quoteToken.symbol,
-      amount: this.toRaw(amount, decimals),
-      rawAmount: String(amount),
-      expectedOut: this.toRaw(minOutput, decimals),
+      amount: amount.toString(),
+      rawAmount: this.toRaw(amount, decimals),
+      expectedOut: minOutput.toString(),
       price,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
       gasLimit: this.minFee, // not applicable
       gasCost: estimatedFee, // the total transaction fee in ada,
       txHash,
+      cancelTxHash,
     };
   }
 
@@ -946,30 +992,43 @@ export class Cardano {
       ? (baseToken.decimals as number)
       : (quoteToken.decimals as number);
 
+    const outputDecimals = sell
+      ? (quoteToken.decimals as number)
+      : (baseToken.decimals as number);
+
     console.log(
-      (await this.getPrice(baseToken, quoteToken, sell, priceLimit)).raw,
+      baseToken,
+      quoteToken,
+      sell,
+      priceLimit,
+      await this.getPrice(baseToken, quoteToken, sell, priceLimit),
       '\n',
       decimals,
     );
-    let price = (await this.getPrice(baseToken, quoteToken, sell, priceLimit))
-      .raw;
+    let rawPrice = (
+      await this.getPrice(baseToken, quoteToken, sell, priceLimit)
+    ).raw;
+
+    let price = BigNumber(rawPrice)
+      .multipliedBy(BigNumber(10).pow(outputDecimals))
+      .dividedBy(BigNumber(10).pow(decimals))
+      .toString();
 
     let minOutput = this.calculateMinOutput(
       amount,
       BigNumber(price),
       Number(slippage),
-      decimals,
     );
 
     return {
-      base: baseToken.symbol,
-      quote: quoteToken.symbol,
+      base: baseToken.symbol === '' ? baseToken.name : baseToken.symbol,
+      quote: quoteToken.symbol === '' ? quoteToken.name : quoteToken.symbol,
       amount: String(amount), // the raw amount that user entered
       rawAmount: this.toRaw(amount, decimals),
-      expectedAmount: this.toRaw(minOutput, decimals),
+      expectedAmount: minOutput.toString(),
       price,
       network: this.network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
@@ -982,23 +1041,17 @@ export class Cardano {
    * Calculates the minimum output amount for a swap, considering the given slippage
    * @param {BigNumber} amount - The input amount for the swap
    * @param {BigNumber} price - The price of the asset
-   * @param {number} decimals - The number of decimal places for the asset
-   * @param {number} slippage - The slippage tolerance as a percentage (e.g., 1 for 1%)
+   * @param {number} slippage - The slippage tolerance as a percentage (e.g. 1 for 1%)
    * @returns {BigNumber} The minimum output amount considering the slippage
    */
   public calculateMinOutput(
     amount: BigNumber,
     price: BigNumber,
     slippage: number,
-    decimals: number,
   ): BigNumber {
-    const effectivePrice = price.multipliedBy(1 + slippage * 0.01);
+    const minOutputBase = amount.div(price).multipliedBy(1 - slippage * 0.01);
 
-    const minOutputBase = amount.div(effectivePrice);
-
-    let minOutput = this.fromRaw(minOutputBase, decimals);
-
-    return BigNumber(minOutput);
+    return minOutputBase;
   }
 
   /**
@@ -1052,7 +1105,10 @@ export class Cardano {
           ? AssetInfo.fromString('', '')
           : token.token.asset,
       );
-
+      console.log({
+        base: baseToken.token.asset,
+        quote: quoteToken.token.asset,
+      });
       const orderBook = await this._dex.api.getOrderBook({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
