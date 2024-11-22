@@ -244,15 +244,14 @@ export async function getSplashPools(
   }
 }
 
-export function generateHash(number: number, networkString: string): string {
-  return sha256(`${number}${networkString}`).toString(enc.Hex).slice(0, 16);
+export function generateHash(networkString: string): string {
+  return sha256(`${networkString}`).toString(enc.Hex).slice(0, 16);
 }
 
 export function updateTokenMetadata(
   token: CardanoToken,
   metadata: TokenRegistryMetadata,
 ): CardanoToken {
-
   token.decimals = metadata.decimals;
   token.symbol = metadata.ticker;
   token.token.asset.metadata = {

@@ -54,7 +54,6 @@ import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 
-
 /**
  * Main Cardano class for interacting with the cardano blockchain.
  */
@@ -138,7 +137,7 @@ export class Cardano {
    */
   public static getInstance(network: string, name?: string): Cardano {
     try {
-      const hash = generateHash(Date.now(), String(network));
+      const hash = generateHash(String(network));
 
       const instanceName = name || hash;
 
@@ -487,8 +486,7 @@ export class Cardano {
 
         const isAda = unit.toUpperCase() === 'LOVELACE';
         const tokenName = isAda ? 'ADA' : hexToString(unit.slice(56));
-        console.log(tokenName);
-        console.log(Cardano._tokenMetadata.get(tokenName.toUpperCase()));
+
         const tokenDecimals = isAda
           ? 6
           : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
@@ -617,14 +615,14 @@ export class Cardano {
       .multipliedBy(BigNumber(10).pow(outputDecimals))
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
-    console.log(price, rawPrice)
+
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
       rawPrice,
       Number(slippage),
     );
-
+    
     const estimatedFee = await this.estimateFee(inputToken, outputToken.asset);
 
     const minOutput = this.calculateMinOutput(
@@ -660,7 +658,7 @@ export class Cardano {
       setTimeout(async () => {
         try {
           const confirmed = await this.checkSatisfaction(hash, index);
-          console.log(confirmed)
+
           if (!confirmed) {
             // cancelling
             const cancelTxHash = await this.cancel(hash, index);
@@ -782,6 +780,7 @@ export class Cardano {
 
   public async cancel(txHash: string, index: number = 0): Promise<string> {
     try {
+      console.log(`order failure, cancelling ${txHash}:${index}`);
       let cancelTxHash = await this._dex.explorer.submitTx(
         (
           await (
@@ -857,20 +856,14 @@ export class Cardano {
       this._node,
     );
 
-    console.log(quoteMetadata);
-
     if (!baseMetadata || !quoteMetadata) {
       throw new Error(
         "Couldn't find the tokens metadata, try a verified token",
       );
     }
 
-    console.log(realQuoteToken);
-
     realBaseToken = updateTokenMetadata(realBaseToken, baseMetadata);
     realQuoteToken = updateTokenMetadata(realQuoteToken, quoteMetadata);
-
-    console.log(realQuoteToken);
 
     return this.createPriceResponse(
       realBaseToken,
@@ -912,7 +905,7 @@ export class Cardano {
       let txCbor = (await tx.sign()).cbor;
 
       let txHash = await this._dex.explorer.submitTx(txCbor);
-
+      
       return txHash;
     } catch (err) {
       throw new Error(
@@ -997,15 +990,6 @@ export class Cardano {
       ? (quoteToken.decimals as number)
       : (baseToken.decimals as number);
 
-    console.log(
-      baseToken,
-      quoteToken,
-      sell,
-      priceLimit,
-      await this.getPrice(baseToken, quoteToken, sell, amount, priceLimit),
-      '\n',
-      decimals,
-    );
     let rawPrice = (
       await this.getPrice(baseToken, quoteToken, sell, amount, priceLimit)
     ).raw;
@@ -1107,23 +1091,22 @@ export class Cardano {
           ? AssetInfo.fromString('', '')
           : token.token.asset,
       );
-      console.log({
-        base: baseToken.token.asset,
-        quote: quoteToken.token.asset,
-      });
+
       const orderBook = await this._dex.api.getOrderBook({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
       });
 
-      let inputToken = (sell ? baseToken : quoteToken);
+      let inputToken = sell ? baseToken : quoteToken;
 
-      const input = inputToken.token.withAmount(BigInt(this.toRaw(amount, inputToken.decimals)));
+      const input = inputToken.token.withAmount(
+        BigInt(this.toRaw(amount, inputToken.decimals)),
+      );
 
       return selectEstimatedPrice({
         orderBook,
         input,
-        priceType: 'average',
+        priceType: 'actual',
       });
     } catch (error) {
       throw new Error(`Failed to fetch the estimate the price ${error}`);
