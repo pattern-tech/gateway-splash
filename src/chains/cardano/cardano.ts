@@ -33,7 +33,6 @@ import {
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
-  generateHash,
   getAssetsFromPools,
   getMaestroConfig,
   getNftBase16Names,
@@ -139,11 +138,9 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(network: string, name?: string): Cardano {
+  public static getInstance(network: string): Cardano {
     try {
-      const hash = generateHash(Date.now(), String(network));
-
-      const instanceName = name || hash;
+      const instanceName = network;
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
@@ -292,7 +289,7 @@ export class Cardano {
     let wallet = new CardanoWallet(mnemonic);
 
     await wallet.initialize();
-
+    await this.activateWallet(mnemonic)
     return wallet;
   }
 
@@ -341,7 +338,7 @@ export class Cardano {
       throw new Error('missing passphrase');
     }
     const mnemonic = this.decrypt(encryptedMnemonic, passphrase);
-    return this.getAccountFromMnemonic(mnemonic);
+    return this.getAccountFromMnemonic(mnemonic)
   }
 
   /**

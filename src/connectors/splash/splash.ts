@@ -105,6 +105,7 @@ export class Splash {
    * @param trade Expected trade
    */
   async executeTrade(req: TradeRequest) {
+    await this.cardano.getAccountFromAddress(req.address as unknown as string)
     if (req.side === 'SELL')
       return this.cardano.swap(
         req.base.replace("_", ""),
