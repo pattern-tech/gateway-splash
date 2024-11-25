@@ -68,3 +68,8 @@ export interface TxRequestParams {
   asset? : string
 }
 
+
+export interface OrderConfirmation {
+  confirmed: boolean;
+  txHash: string;
+}

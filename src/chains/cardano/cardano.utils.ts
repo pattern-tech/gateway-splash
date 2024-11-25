@@ -93,9 +93,15 @@ export function getAssetsFromPools(
   };
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
-      if (pool.x.asset.name !== '') {
+      if (
+        pool.x.asset.name !== '' &&
+        pool.x.asset.name.toUpperCase() !== 'ADA'
+      ) {
         addToAssetMap(pool.x);
-      } else if (pool.y.asset.name !== '') {
+      } else if (
+        pool.y.asset.name !== '' &&
+        pool.y.asset.name.toUpperCase() !== 'ADA'
+      ) {
         addToAssetMap(pool.y);
       }
     });
@@ -179,6 +185,7 @@ export async function getTokenMetadataWithBackoff(
         ticker: token.name.toUpperCase(),
         url: '',
       };
+
       metadata.set(token.name.toUpperCase(), tokenMetadata);
     } catch (error) {
       if (
@@ -197,7 +204,10 @@ export async function getTokenMetadataWithBackoff(
           url: '',
         });
       } else {
-        console.error(`Error fetching metadata for ${token.name}:`, error);
+        console.error(`Error fetching metadata for ${token.name}: ${error}`);
+        console.log('trying again in 1 second ...');
+        await delay(1000);
+        return fetchMetadata(token);
       }
     }
   };
@@ -219,23 +229,45 @@ export async function getTokenMetadataWithBackoff(
 export async function getSplashPools(
   splashClient: SplashInstance,
 ): Promise<Record<string, SplashPool[]>> {
-  // loading pools
-  let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({
-    duplicated: false,
-    verified: true,
-  });
+  try {
+    // loading pools
+    let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({
+      duplicated: false,
+      verified: true,
+    });
 
-  let poolMap: Record<string, SplashPool[]> = {};
+    let poolMap: Record<string, SplashPool[]> = {};
 
-  verifiedPools.forEach((pool) => {
-    poolMap[String(pool.nft.nameBase16)] =
-      poolMap[String(pool.nft.nameBase16)] || [];
-    poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair
-  });
-
-  return poolMap;
+    verifiedPools.forEach((pool) => {
+      if (pool.nft.name.includes("OADA")) {
+        console.log(pool)
+      }
+      poolMap[String(pool.nft.nameBase16)] =
+        poolMap[String(pool.nft.nameBase16)] || [];
+      poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair
+    });
+    return poolMap;
+  } catch (error) {
+    console.error(`error while fetching the splash pool ${error}`);
+    throw new Error(`Failed to fetch the splash pools ${error}`);
+  }
 }
 
-export function generateHash(number: number, networkString: string): string {
-  return sha256(`${number}${networkString}`).toString(enc.Hex).slice(0, 16);
+export function generateHash(networkString: string): string {
+  return sha256(`${networkString}`).toString(enc.Hex).slice(0, 16);
+}
+
+export function updateTokenMetadata(
+  token: CardanoToken,
+  metadata: TokenRegistryMetadata,
+): CardanoToken {
+  token.decimals = metadata.decimals;
+  token.symbol = metadata.ticker;
+  token.token.asset.metadata = {
+    policyId: token.policyId,
+    subject: '',
+    ...metadata,
+  };
+
+  return token;
 }
