@@ -83,7 +83,7 @@ export class Cardano {
     let new_network: MaestroSupportedNetworks
     if (network === 'mainnet'){
       new_network = "Mainnet"
-    }else if ('preprod')
+    } else if (network === 'preprod')
       new_network = "Preprod"
     else
       new_network = "Preview"
