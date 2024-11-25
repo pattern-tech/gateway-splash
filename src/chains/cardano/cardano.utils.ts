@@ -93,9 +93,15 @@ export function getAssetsFromPools(
   };
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
-      if (pool.x.asset.name !== '') {
+      if (
+        pool.x.asset.name !== '' &&
+        pool.x.asset.name.toUpperCase() !== 'ADA'
+      ) {
         addToAssetMap(pool.x);
-      } else if (pool.y.asset.name !== '') {
+      } else if (
+        pool.y.asset.name !== '' &&
+        pool.y.asset.name.toUpperCase() !== 'ADA'
+      ) {
         addToAssetMap(pool.y);
       }
     });
@@ -233,6 +239,9 @@ export async function getSplashPools(
     let poolMap: Record<string, SplashPool[]> = {};
 
     verifiedPools.forEach((pool) => {
+      if (pool.nft.name.includes("OADA")) {
+        console.log(pool)
+      }
       poolMap[String(pool.nft.nameBase16)] =
         poolMap[String(pool.nft.nameBase16)] || [];
       poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair

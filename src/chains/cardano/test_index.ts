@@ -216,24 +216,37 @@ async function runTests() {
     let userAddress =
       'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
 
-    console.log(cardano.getBalance(await cardano.getAddressUtxos(userAddress)));
-    console.log(await cardano.estimate('ADA', 'BTN', BigNumber(1), true, '5'));
+    let balances = cardano.getBalance(
+      await cardano.getAddressUtxos(userAddress),
+    );
+
+    console.log(balances.balance.toString());
+    Object.entries(balances.assets).forEach(([key, value]) => {
+      console.log(`Key: ${key}, Value: ${value.toString()}`);
+    });
+    console.log(
+      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5'),
+    );
 
     const result = await cardano.swap(
+      'SPLASH',
       'ADA',
-      'USDC',
-      BigNumber(1),
+      BigNumber(7),
       true,
       '5',
     );
 
-    // await cardano.cancel("a0106325b6f3f8550f3bbf1d8c6e59d81caa2f9523b8aad153d99999fb14b60e");
+    // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");
     // await cardano.cancel("38ff0dfeaacb0fdc8e2d2d9bcbaf79dda34f370126fa7b954fbd656d78fd168e");
 
     console.log('swap tx hash : ', result);
 
-    console.log(cardano.getBalance(await cardano.getAddressUtxos(userAddress)));
+    balances = cardano.getBalance(await cardano.getAddressUtxos(userAddress));
 
+    console.log(balances.balance.toString());
+    Object.entries(balances.assets).forEach(([key, value]) => {
+      console.log(`Key: ${key}, Value: ${value.toString()}`);
+    });
   });
 
   // Run all tests
@@ -244,4 +257,4 @@ async function runTests() {
   console.log(`\nTest Results: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
- runTests()
+runTests();

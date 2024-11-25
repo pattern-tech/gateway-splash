@@ -14,6 +14,7 @@ import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
   Asset,
+  DatumApi,
   MaestroClient,
   MaestroSupportedNetworks,
   TokenRegistryMetadata,
@@ -32,6 +33,8 @@ import {
   selectEstimatedPrice,
   HotWallet,
   isOOROrder,
+  Datum,
+  spotOrderDatum,
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
@@ -537,6 +540,7 @@ export class Cardano {
    * @param {string} priceLimit - Either the swap is a limit order or a market price swap
    * @param {boolean} sell - Either the swap is sell or buy position
    * @param {TradeSlippage} slippage - The slippage tolerance
+   * @param {number} orderTimeout - The number seconds to wait before checking the tx satisfaction status
    * @returns {Promise<TradeResponse>} The trade response
    */
 
@@ -546,8 +550,8 @@ export class Cardano {
     amount: BigNumber,
     sell: boolean = false,
     slippage: TradeSlippage = this.defaultSlippage,
+    // orderTimeout: number = 15,
     priceLimit?: string,
-    orderTimeout: number = 15,
   ): Promise<TradeResponse> {
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
@@ -619,10 +623,9 @@ export class Cardano {
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
-      rawPrice,
       Number(slippage),
     );
-    
+
     const estimatedFee = await this.estimateFee(inputToken, outputToken.asset);
 
     const minOutput = this.calculateMinOutput(
@@ -633,7 +636,7 @@ export class Cardano {
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
 
-    let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
+    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
 
     return this.createTradeResponse(
       sell ? baseCardanoToken : quoteCardanoToken,
@@ -644,35 +647,52 @@ export class Cardano {
       sell,
       estimatedFee,
       txHash,
-      confirmResult.confirmed,
-      confirmResult.txHash,
     );
   }
 
-  private async confirmOrder(
-    hash: string,
-    index: number = 0,
-    orderTimeout: number,
-  ): Promise<OrderConfirmation> {
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        try {
-          const confirmed = await this.checkSatisfaction(hash, index);
+  // private async confirmOrder(
+  //   hash: string,
+  //   index: number = 0,
+  //   orderTimeout: number,
+  // ): Promise<OrderConfirmation> {
+  //   // First check after 5 seconds
+  //   return new Promise((resolve) => {
+  //     setTimeout(async () => {
+  //       try {
+  //         const initialConfirmation = await this.checkSatisfaction(hash, index);
 
-          if (!confirmed) {
-            // cancelling
-            const cancelTxHash = await this.cancel(hash, index);
-            resolve({ confirmed: false, txHash: cancelTxHash });
-          } else {
-            resolve({ confirmed: true, txHash: '' });
-          }
-        } catch (error) {
-          // Handle any errors that might occur during checkSatisfaction or cancel
-          resolve({ confirmed: false, txHash: '' });
-        }
-      }, orderTimeout * 1000);
-    });
-  }
+  //         if (initialConfirmation) {
+  //           resolve({ confirmed: true, txHash: '' });
+  //           return;
+  //         }
+
+  //         setTimeout(
+  //           async () => {
+  //             try {
+  //               const finalConfirmation = await this.checkSatisfaction(
+  //                 hash,
+  //                 index,
+  //               );
+
+  //               if (!finalConfirmation) {
+  //                 // If still not satisfied after full timeout, cancel
+  //                 const cancelTxHash = await this.cancel(hash, index);
+  //                 resolve({ confirmed: false, txHash: cancelTxHash });
+  //               } else {
+  //                 resolve({ confirmed: true, txHash: '' });
+  //               }
+  //             } catch (error) {
+  //               resolve({ confirmed: false, txHash: '' });
+  //             }
+  //           },
+  //           (orderTimeout - 5) * 1000,
+  //         ); // Subtract the initial 5 seconds
+  //       } catch (error) {
+  //         resolve({ confirmed: false, txHash: '' });
+  //       }
+  //     }, 5000);
+  //   });
+  // }
 
   /**
    * Validates the base and quote tokens for a swap
@@ -754,17 +774,16 @@ export class Cardano {
   }
 
   /**
-   * Creates a swap transaction
+   * Creates a swap transaction with the market price
    * @param {Currency} inputToken - The input token for the swap
    * @param {Currency} outputToken - The output token for the swap
-   * @param {Price} price - The price for the swap
    * @param {number} slippage - The slippage tolerance for the swap
    * @returns {Promise<Transaction>} A promise that resolves to the created swap transaction
    */
   private async createSwapTransaction(
     inputToken: Currency,
     outputToken: Currency,
-    price: Price,
+    // price: Price,
     slippage: number,
   ): Promise<Transaction> {
     return await this._dex
@@ -772,7 +791,7 @@ export class Cardano {
       .spotOrder({
         input: inputToken,
         outputAsset: outputToken.asset,
-        price,
+        // price,
         slippage,
       })
       .complete();
@@ -830,6 +849,7 @@ export class Cardano {
    * @param {string} baseToken - The base token symbol
    * @param {string} quoteToken - The quote token symbol
    * @param {BigNumber} amount - The amount to swap
+   * @param {boolean} sell - either selling the base token or buying it.
    * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<PriceResponse>} The price estimate
    */
@@ -905,7 +925,7 @@ export class Cardano {
       let txCbor = (await tx.sign()).cbor;
 
       let txHash = await this._dex.explorer.submitTx(txCbor);
-      
+
       return txHash;
     } catch (err) {
       throw new Error(
@@ -935,15 +955,13 @@ export class Cardano {
     sell: boolean,
     estimatedFee: string,
     txHash: string,
-    success: boolean,
-    cancelTxHash: string = '',
   ): Promise<TradeResponse> {
     const decimals = sell
       ? (baseToken.decimals as number)
       : (quoteToken.decimals as number);
 
     return {
-      success,
+      
       network: this._network,
       timestamp: await this.getBlockTimestamp(),
       latency: 0,
@@ -958,7 +976,6 @@ export class Cardano {
       gasLimit: this.minFee, // not applicable
       gasCost: estimatedFee, // the total transaction fee in ada,
       txHash,
-      cancelTxHash,
     };
   }
 
@@ -1064,6 +1081,7 @@ export class Cardano {
    * @param {CardanoToken} baseToken - The base token
    * @param {CardanoToken} quoteToken - The quote token
    * @param {boolean} sell - Whether it's a sell operation
+   * @param {BigNumber} amount - the amount to swap
    * @param {string} [priceLimit] - Optional price limit
    * @returns {Promise<Price>}
    */
@@ -1091,7 +1109,7 @@ export class Cardano {
           ? AssetInfo.fromString('', '')
           : token.token.asset,
       );
-
+      
       const orderBook = await this._dex.api.getOrderBook({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
@@ -1102,11 +1120,10 @@ export class Cardano {
       const input = inputToken.token.withAmount(
         BigInt(this.toRaw(amount, inputToken.decimals)),
       );
-
       return selectEstimatedPrice({
         orderBook,
         input,
-        priceType: 'actual',
+        priceType: 'average',
       });
     } catch (error) {
       throw new Error(`Failed to fetch the estimate the price ${error}`);
