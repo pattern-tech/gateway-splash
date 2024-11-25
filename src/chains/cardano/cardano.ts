@@ -3,7 +3,6 @@ import {
   CardanoConfig,
   CardanoConnectedInstance,
   CardanoToken,
-  OrderConfirmation,
   TxRequestParams,
 } from './interfaces/cardano.interface';
 
@@ -14,7 +13,6 @@ import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
   Asset,
-  DatumApi,
   MaestroClient,
   MaestroSupportedNetworks,
   TokenRegistryMetadata,
@@ -33,8 +31,6 @@ import {
   selectEstimatedPrice,
   HotWallet,
   isOOROrder,
-  Datum,
-  spotOrderDatum,
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
@@ -908,11 +904,11 @@ export class Cardano {
    * Gets the latest block timestamp
    * @returns {Promise<number>}
    */
-  private async getBlockTimestamp(): Promise<string> {
+  private async getBlockTimestamp(): Promise<number> {
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
-    return blockInfo.data.timestamp;
+    return Number(blockInfo.data.timestamp);
   }
 
   /**

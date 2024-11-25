@@ -83,7 +83,6 @@
     "body-parser": "^1.19.0",
     "chalk": "^4.1.0",
     "coinalpha-ref-sdk": "1.1.0",
-    "crypto-js": "^4.2.0",
     "dayjs": "^1.10.6",
     "decimal.js-light": "^2.5.1",
     "dotenv": "^16.4.5",
@@ -122,6 +121,7 @@
     "yarn": "^1.22.17"
   },
   "devDependencies": {
+    "crypto-js": "^4.2.0",
     "@babel/core": "^7.0.0-0",
     "@babel/runtime": "^7.0",
     "@connectis/diff-test-coverage": "^1.5.1",

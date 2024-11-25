@@ -33,9 +33,7 @@
 //  * getTxState // server error
 
 import { Cardano } from './cardano';
-import assert from 'assert';
 import dotenv from 'dotenv';
-import { forEach } from 'mathjs';
 dotenv.config({ path: '../../../.env' });
 import { BigNumber } from 'bignumber.js';
 

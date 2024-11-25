@@ -26,7 +26,7 @@ export interface PriceResponse {
   expectedAmount: string;
   price: string;
   network: string;
-  timestamp: string;
+  timestamp: number;
   latency: number;
   gasPrice: number;
   gasPriceToken: string;
@@ -74,7 +74,7 @@ export interface TradeRequest extends NetworkSelectionRequest {
 
 export interface TradeResponse {
   network: string;
-  timestamp: string;
+  timestamp: number;
   latency: number;
   base: string;
   quote: string;

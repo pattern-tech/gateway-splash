@@ -159,7 +159,7 @@ export async function addWallet(
         passphrase
       );
     } else if (connection instanceof Cardano) {
-      const account = connection.getAccountFromMnemonic(req.privateKey);
+      const account = await connection.getAccountFromMnemonic(req.privateKey);
       address = account.generateBaseAddress();
       encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
     }
