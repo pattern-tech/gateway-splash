@@ -52,6 +52,11 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import {
+  HttpException,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+} from '../../services/error-handler';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -488,8 +493,7 @@ export class Cardano {
 
         const tokenDecimals = isAda
           ? 6
-          : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
-            0);
+          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
         if (assets[tokenName] === undefined) {
           assets[tokenName] = BigNumber(0);
         }
@@ -600,7 +604,7 @@ export class Cardano {
       quoteCardanoToken,
       sell,
       amount,
-      priceLimit,
+      // priceLimit,
     );
 
     const decimals = sell
@@ -616,6 +620,22 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
+    console.log(rawPrice, price, priceLimit);
+    if (
+      (sell && BigNumber(String(priceLimit)).gt(BigNumber(price))) ||
+      (!sell && BigNumber(String(priceLimit)).lt(BigNumber(price)))
+    ) {
+      console.error('Swap price exceeded limit price.');
+      throw new HttpException(
+        500,
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+          BigNumber(price).toFixed(8),
+          BigNumber(String(priceLimit)).toFixed(8),
+        ),
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+      );
+    }
+
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
@@ -630,7 +650,7 @@ export class Cardano {
       Number(slippage),
     );
 
-    let txHash = await this.signAndSubmitTransaction(swapTx);
+    // let txHash = await this.signAndSubmitTransaction(swapTx);
 
     // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
 
@@ -642,7 +662,7 @@ export class Cardano {
       minOutput,
       sell,
       estimatedFee,
-      txHash,
+      'txHash',
     );
   }
 
@@ -826,6 +846,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
+      console.log(input, outputAsset);
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -957,7 +978,6 @@ export class Cardano {
       : (quoteToken.decimals as number);
 
     return {
-      
       network: this._network,
       timestamp: await this.getBlockTimestamp(),
       latency: 0,
@@ -1017,7 +1037,12 @@ export class Cardano {
       BigNumber(price),
       Number(slippage),
     );
-
+    if (!estimatedFee) {
+      estimatedFee = await this.estimateFee(
+        baseToken.token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        quoteToken.token.asset,
+      );
+    }
     return {
       base: baseToken.symbol === '' ? baseToken.name : baseToken.symbol,
       quote: quoteToken.symbol === '' ? quoteToken.name : quoteToken.symbol,
@@ -1105,7 +1130,7 @@ export class Cardano {
           ? AssetInfo.fromString('', '')
           : token.token.asset,
       );
-      
+
       const orderBook = await this._dex.api.getOrderBook({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
