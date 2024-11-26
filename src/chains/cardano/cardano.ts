@@ -1041,6 +1041,12 @@ export class Cardano {
       BigNumber(price),
       Number(slippage),
     );
+    if (!estimatedFee) {
+      estimatedFee = await this.estimateFee(
+        baseToken.token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        quoteToken.token.asset,
+      );
+    }
 
     return {
       base: baseToken.symbol === '' ? baseToken.name : baseToken.symbol,
