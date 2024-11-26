@@ -5,8 +5,8 @@ const configManager = ConfigManagerV2.getInstance();
 
 export namespace SplashConfig {
   export const config: NetworkConfig = {
-    allowedSlippage: configManager.get('ergo.allowedSlippage'),
-    gasLimitEstimate: configManager.get('ergo.gasLimitEstimate'),
+    allowedSlippage: configManager.get('cardano.allowedSlippage'),
+    gasLimitEstimate: configManager.get('cardano.gasLimitEstimate'),
     tradingTypes: ['AMM'],
     chainType: 'CARDANO',
     availableNetworks: [{ chain: 'cardano', networks: ['mainnet'] }],

@@ -93,7 +93,7 @@ export interface TradeResponse {
   gasCost: string; // Cosmos: gasUsed
   nonce?: number;
   txHash: string | any | undefined;
-  
+
 }
 
 export interface AddLiquidityRequest extends NetworkSelectionRequest { // now also cosmos add swap position OR cosmos add LP position

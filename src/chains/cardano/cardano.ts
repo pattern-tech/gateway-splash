@@ -8,7 +8,11 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-
+import {
+  HttpException,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+} from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
@@ -34,7 +38,6 @@ import {
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
-  generateHash,
   getAssetsFromPools,
   getMaestroConfig,
   getNftBase16Names,
@@ -82,23 +85,30 @@ export class Cardano {
    * Synchronously Creates an instance of Cardano.
    * @param {CardanoNetwork} network - The Cardano network to connect to ('mainnet', 'preprod' or 'testnet')
    */
-  private constructor(
-    network: MaestroSupportedNetworks,
+  public constructor(
+    network: string,
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
   ) {
-    this._network = network;
+    let new_network: MaestroSupportedNetworks
+    if (network === 'mainnet'){
+      new_network = "Mainnet"
+    } else if (network === 'preprod')
+      new_network = "Preprod"
+    else
+      new_network = "Preview"
+    this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(network, config.network.nodeURL),
+      getMaestroConfig(new_network, config.network.nodeURL),
     );
 
-    this._dex = getSplashInstance(network);
+    this._dex = getSplashInstance(new_network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
     // this.timeout = config.network.timeOut;
-    this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
+    this.defaultSlippage = "1" as TradeSlippage;
     this._splashPools = splashPools;
   }
 
@@ -127,23 +137,23 @@ export class Cardano {
 
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values(this._assetMap),
+      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}),
       this._node,
     );
     return;
   }
 
   /**
-   * Gets or creates an Cardano instance
+   * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
+   * @param name - The name of the network
    * @returns {Cardano}
    * @static
    */
   public static getInstance(network: string, name?: string): Cardano {
     try {
-      const hash = generateHash(String(network));
 
-      const instanceName = name || hash;
+      const instanceName = name || network;
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
@@ -187,8 +197,8 @@ export class Cardano {
    * Gets the current network
    * @returns {MaestroSupportedNetworks}
    */
-  public get network(): MaestroSupportedNetworks {
-    return this._network;
+  public get network(): string {
+    return String(this._network).toLowerCase();
   }
   /**
    * Checks if the trade is placed and done in the dex.
@@ -303,7 +313,7 @@ export class Cardano {
     let wallet = new CardanoWallet(mnemonic);
 
     await wallet.initialize();
-
+    await this.activateWallet(mnemonic)
     return wallet;
   }
 
@@ -352,7 +362,7 @@ export class Cardano {
       throw new Error('missing passphrase');
     }
     const mnemonic = this.decrypt(encryptedMnemonic, passphrase);
-    return this.getAccountFromMnemonic(mnemonic);
+    return this.getAccountFromMnemonic(mnemonic)
   }
 
   /**
@@ -511,7 +521,6 @@ export class Cardano {
 
     let balance = assets['ADA'];
     delete assets['ADA'];
-
     return { balance, assets };
   }
 
@@ -549,9 +558,9 @@ export class Cardano {
     quoteToken: string,
     amount: BigNumber,
     sell: boolean = false,
+    priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
     // orderTimeout: number = 15,
-    priceLimit?: string,
   ): Promise<TradeResponse> {
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
@@ -620,7 +629,6 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
-    console.log(rawPrice, price, priceLimit);
     if (
       (sell && BigNumber(String(priceLimit)).gt(BigNumber(price))) ||
       (!sell && BigNumber(String(priceLimit)).lt(BigNumber(price)))
@@ -978,8 +986,9 @@ export class Cardano {
       : (quoteToken.decimals as number);
 
     return {
-      network: this._network,
-      timestamp: await this.getBlockTimestamp(),
+
+      network: this.network,
+      timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
       base: baseToken.symbol,
       quote: quoteToken.symbol,
@@ -1051,7 +1060,7 @@ export class Cardano {
       expectedAmount: minOutput.toString(),
       price,
       network: this.network,
-      timestamp: await this.getBlockTimestamp(),
+      timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
