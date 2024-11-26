@@ -45,7 +45,7 @@ export class CardanoController {
         return {
           decimals: temp.decimals,
           name: temp.name,
-          symbol: temp.symbol
+          symbol: temp.name
         }
       }),
     };

@@ -112,7 +112,7 @@ export class Splash {
         req.quote.replace("_", ""),
         BigNumber(req.amount),
         true,
-        req.allowedSlippage as TradeSlippage
+        String(req.limitPrice)
       );
     else if (req.side === 'BUY')
       return this.cardano.swap(
@@ -120,7 +120,7 @@ export class Splash {
         req.quote.replace("_", ""),
         BigNumber(req.amount),
         false,
-        req.allowedSlippage as TradeSlippage,
+        String(req.limitPrice)
       );
     else
       return this.cardano.swap(
@@ -128,7 +128,7 @@ export class Splash {
         req.quote.replace("_", ""),
         BigNumber(req.amount),
         false,
-        req.allowedSlippage as TradeSlippage,
+        String(req.limitPrice)
       );
   }
 }

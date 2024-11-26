@@ -8,7 +8,11 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-
+import {
+  HttpException,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+} from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
@@ -99,7 +103,7 @@ export class Cardano {
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
     // this.timeout = config.network.timeOut;
-    this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
+    this.defaultSlippage = "1" as TradeSlippage;
     this._splashPools = splashPools;
   }
 
@@ -128,23 +132,23 @@ export class Cardano {
 
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values(this._assetMap),
+      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}),
       this._node,
     );
     return;
   }
 
   /**
-   * Gets or creates an Cardano instance
+   * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
+   * @param name - The name of the network
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(network: string): Cardano {
+  public static getInstance(network: string, name?: string): Cardano {
     try {
-      const hash = generateHash(String(network));
 
-      const instanceName = name || hash;
+      const instanceName = name || network;
 
       // Initialize _instances if it doesn't exist
       if (!Cardano._instances) {
@@ -188,8 +192,8 @@ export class Cardano {
    * Gets the current network
    * @returns {MaestroSupportedNetworks}
    */
-  public get network(): MaestroSupportedNetworks {
-    return this._network;
+  public get network(): string {
+    return String(this._network).toLowerCase();
   }
   /**
    * Checks if the trade is placed and done in the dex.
@@ -550,9 +554,9 @@ export class Cardano {
     quoteToken: string,
     amount: BigNumber,
     sell: boolean = false,
+    priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
     // orderTimeout: number = 15,
-    priceLimit?: string,
   ): Promise<TradeResponse> {
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
@@ -620,6 +624,21 @@ export class Cardano {
       .multipliedBy(BigNumber(10).pow(outputDecimals))
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
+
+    if (
+      (sell && BigNumber(String(priceLimit)).gt(BigNumber(price))) ||
+      (!sell && BigNumber(String(priceLimit)).lt(BigNumber(price)))
+    ) {
+      console.error('Swap price exceeded limit price.');
+      throw new HttpException(
+        500,
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+          BigNumber(price).toFixed(8),
+          BigNumber(String(priceLimit)).toFixed(8),
+        ),
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+      );
+    }
 
     const swapTx = await this.createSwapTransaction(
       inputToken,
@@ -963,7 +982,7 @@ export class Cardano {
 
     return {
 
-      network: this._network,
+      network: this.network,
       timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
       base: baseToken.symbol,
