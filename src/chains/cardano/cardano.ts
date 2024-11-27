@@ -55,11 +55,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
-import {
-  HttpException,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../services/error-handler';
+
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -560,7 +556,6 @@ export class Cardano {
     sell: boolean = false,
     priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
-    // orderTimeout: number = 15,
   ): Promise<TradeResponse> {
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
@@ -613,7 +608,6 @@ export class Cardano {
       quoteCardanoToken,
       sell,
       amount,
-      // priceLimit,
     );
 
     const decimals = sell
@@ -630,15 +624,15 @@ export class Cardano {
       .toString();
 
     if (
-      (sell && BigNumber(String(priceLimit)).gt(BigNumber(price))) ||
-      (!sell && BigNumber(String(priceLimit)).lt(BigNumber(price)))
+      (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
+      (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
     ) {
       console.error('Swap price exceeded limit price.');
       throw new HttpException(
         500,
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-          BigNumber(price).toFixed(8),
-          BigNumber(String(priceLimit)).toFixed(8),
+          BigNumber(price).toFixed(decimals), 
+          BigNumber(priceLimit).toFixed(outputDecimals), 
         ),
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
       );
@@ -658,7 +652,7 @@ export class Cardano {
       Number(slippage),
     );
 
-    // let txHash = await this.signAndSubmitTransaction(swapTx);
+    let txHash = await this.signAndSubmitTransaction(swapTx);
 
     // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
 
@@ -670,7 +664,7 @@ export class Cardano {
       minOutput,
       sell,
       estimatedFee,
-      'txHash',
+      txHash,
     );
   }
 
@@ -807,7 +801,6 @@ export class Cardano {
   private async createSwapTransaction(
     inputToken: Currency,
     outputToken: Currency,
-    // price: Price,
     slippage: number,
   ): Promise<Transaction> {
     return await this._dex
@@ -815,7 +808,6 @@ export class Cardano {
       .spotOrder({
         input: inputToken,
         outputAsset: outputToken.asset,
-        // price,
         slippage,
       })
       .complete();
@@ -1052,10 +1044,11 @@ export class Cardano {
         quoteToken.token.asset,
       );
     }
+
     return {
       base: baseToken.symbol === '' ? baseToken.name : baseToken.symbol,
       quote: quoteToken.symbol === '' ? quoteToken.name : quoteToken.symbol,
-      amount: String(amount), // the raw amount that user entered
+      amount: String(amount), 
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
       price,
@@ -1150,6 +1143,7 @@ export class Cardano {
       const input = inputToken.token.withAmount(
         BigInt(this.toRaw(amount, inputToken.decimals)),
       );
+
       return selectEstimatedPrice({
         orderBook,
         input,
