@@ -1,9 +1,21 @@
 import { Cardano } from '../../../src/chains/cardano/cardano';
 import * as node from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
-
+import { isOOROrder } from '@splashprotocol/sdk';
 jest.mock('@maestro-org/typescript-sdk', () => ({
-  MaestroClient: jest.fn(),
+  MaestroClient: jest.fn().mockImplementation(() => ({
+    general: {
+      chainTip: jest.fn().mockResolvedValue({
+        data: {
+          height: 12345,
+        },
+      }),
+    },
+    // You can mock other APIs here if needed
+  })),
+}));
+jest.mock('@splashprotocol/sdk', () => ({
+  isOOROrder: jest.fn(),
 }));
 let cardano: Cardano;
 
@@ -103,4 +115,33 @@ describe('Cardano', () => {
       expect(cardanoInstance).toEqual(cachedInstance);
     });
   });
+
+  describe('checkSatisfaction', () => {
+    it('Should be defined', () => {
+      expect(cardano.checkSatisfaction).toBeDefined();
+    });
+    it('Should call isOOROrder method with the correct parameters', async () => {
+      await cardano.checkSatisfaction('hash');
+      expect(isOOROrder).toHaveBeenCalledWith('hash:0', {});
+    });
+  });
+
+  describe('storedAssetList', () => {
+    it('Should be defined', () => {
+      expect(cardano.storedAssetList).toBeDefined();
+    });
+    it('Shopuld return the _assetMap value', () => {
+      expect(cardano.storedAssetList).toEqual([]);
+    });
+  });
+  describe('ready', () => {
+    it('Should be defined', () => {
+      expect(cardano.ready).toBeDefined();
+    });
+    it('Shopuld return the ready status', () => {
+      cardano['_ready'] = false;
+      expect(cardano.ready()).toEqual(false);
+    });
+  });
+
 });
