@@ -55,11 +55,6 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
-import {
-  HttpException,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../services/error-handler';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -92,7 +87,7 @@ export class Cardano {
     splashPools: Record<string, SplashPool[]>,
   ) {
     let new_network: MaestroSupportedNetworks
-    if (network === 'mainnet'){
+    if (network === 'mainnet') {
       new_network = "Mainnet"
     } else if (network === 'preprod')
       new_network = "Preprod"
@@ -131,16 +126,22 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // requires `loadAssets` and and `loadPools` to be called before
-    if (!this._assetMap) {
-      throw new Error('try to re-init the object !');
+    try {
+      if (Object.keys(this._assetMap).length === 0) {
+        throw new Error('try to re-init the object !');
+      }
+      // loading the metadata with backoff
+      Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+        Object.values({
+          ADA: this._assetMap['ADA'],
+          USDC: this._assetMap['USDC'],
+        }),
+        this._node,
+      );
+    } catch (e) {
+      console.error(e);
+      return;
     }
-
-    // loading the metadata with backoff
-    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}),
-      this._node,
-    );
-    return;
   }
 
   /**
