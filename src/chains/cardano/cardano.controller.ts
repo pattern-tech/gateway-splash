@@ -27,7 +27,7 @@ export class CardanoController {
       network: String(chain.network),
       timestamp: Date.now(),
       latency: 0,
-      balances: { LOVELACE: balance.toString(), ...new_assets },
+      balances: { ADA: balance.toString(), ...new_assets },
     };
   }
 
@@ -45,7 +45,7 @@ export class CardanoController {
         return {
           decimals: temp.decimals,
           name: temp.name,
-          symbol: temp.symbol
+          symbol: temp.name
         }
       }),
     };
@@ -72,7 +72,7 @@ export class CardanoController {
       latency: 0,
       spender: request.spender,
       approvals: {
-        LOVELACE: balance.toString(),
+        ADA: balance.toString(),
         ...new_assets,
       },
     };
