@@ -3,4 +3,4 @@ networks:
     nodeURL: "https://mainnet.gomaestro-api.org/v1"
     maxLRUCacheInstances: "150"
     utxosLimit: "100"
-    defaultSlippage: "5"
+    defaultSlippage: "2"
