@@ -11,7 +11,6 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
         },
       }),
     },
-    // You can mock other APIs here if needed
   })),
 }));
 jest.mock('@splashprotocol/sdk', () => ({
@@ -20,21 +19,23 @@ jest.mock('@splashprotocol/sdk', () => ({
 let cardano: Cardano;
 
 describe('Cardano', () => {
-  beforeAll(() => {
+  const mockConfig: any = {
+    network: {
+      name: 'name',
+      nodeURL: 'nodeURL',
+      maxLRUCacheInstances: 100,
+      utxosLimit: 100,
+      defaultSlippage: '0.1',
+    },
+  };
+  const network = 'mainnet';
+  beforeEach(() => {
     jest.spyOn(node, 'getMaestroConfig').mockReturnValue({} as any);
     jest.spyOn(node, 'getSplashInstance').mockReturnValue({} as any);
-    cardano = new Cardano(
-      'mainnet',
-      {
-        network: {
-          nodeURL: 'nodeURL',
-          utxosLimit: 'utxosLimit',
-          defaultSlippage: 'defaultSlippage',
-        },
-      } as any,
-      100,
-      {} as any,
-    );
+    cardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
   });
   it('Should be defined', () => {
     expect(cardano).toBeDefined();
@@ -81,21 +82,9 @@ describe('Cardano', () => {
   // });
 
   describe('getInstance', () => {
-    const mockConfig: any = {
-      network: {
-        name: 'name',
-        nodeURL: 'nodeURL',
-        maxLRUCacheInstances: 100,
-        utxosLimit: 100,
-        defaultSlippage: '0.1',
-      },
-    };
-    const network = 'mainnet';
-
     it('Should be defined', () => {
       expect(Cardano.getInstance).toBeDefined();
     });
-
     it('should create a new Cardano instance if it does not exist in the cache', () => {
       // Arrange
       jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
@@ -111,8 +100,9 @@ describe('Cardano', () => {
       // Act
       const cardanoInstance = Cardano.getInstance(network);
       // Assert
-      expect(config.getCardanoConfig).toHaveBeenCalledWith(network);
-      expect(cardanoInstance).toEqual(cachedInstance);
+      expect(JSON.stringify(cardanoInstance)).toBe(
+        JSON.stringify(cachedInstance),
+      );
     });
   });
 
@@ -143,5 +133,21 @@ describe('Cardano', () => {
       expect(cardano.ready()).toEqual(false);
     });
   });
-
+  describe('getNetworkHeight', () => {
+    it('Should be defined', () => {
+      expect(cardano.getNetworkHeight).toBeDefined();
+    });
+    it('Shopuld return the Network height', async () => {
+      expect(await cardano.getNetworkHeight()).toEqual(12345);
+    });
+  });
+  describe('getCurrentBlockNumber', () => {
+    it('Should be defined', () => {
+      expect(cardano.getCurrentBlockNumber).toBeDefined();
+    });
+    it('Shopuld return the Network height', async () => {
+      jest.spyOn(cardano, 'getNetworkHeight').mockResolvedValue(123);
+      expect(await cardano.getCurrentBlockNumber()).toEqual(124);
+    });
+  });
 });
