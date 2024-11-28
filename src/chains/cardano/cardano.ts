@@ -127,22 +127,13 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // requires `loadAssets` and and `loadPools` to be called before
-    try {
-      if (Object.keys(this._assetMap).length === 0) {
-        throw new Error('try to re-init the object !');
-      }
-      // loading the metadata with backoff
-      Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-        Object.values({
-          ADA: this._assetMap['ADA'],
-          USDC: this._assetMap['USDC'],
-        }),
-        this._node,
-      );
-    } catch (e) {
-      console.error(e);
-      return;
-    }
+    // loading the metadata with backoff
+    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}), // todo
+      this._node,
+    );
+
+    return;
   }
 
   /**

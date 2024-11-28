@@ -224,7 +224,7 @@ async function runTests() {
     //   console.log(`Key: ${key}, Value: ${value.toString()}`);
     // });
     console.log("this sis the estimated: ",
-      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '0/1' as TradeSlippage),
+      await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
     );
 
     // const result = await cardano.swap(
