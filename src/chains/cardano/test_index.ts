@@ -36,6 +36,7 @@ import { Cardano } from './cardano';
 import dotenv from 'dotenv';
 dotenv.config({ path: '../../../.env' });
 import { BigNumber } from 'bignumber.js';
+import { TradeSlippage } from './types/node.types';
 
 // Simple test runner
 async function runTests() {
@@ -222,29 +223,30 @@ async function runTests() {
     Object.entries(balances.assets).forEach(([key, value]) => {
       console.log(`Key: ${key}, Value: ${value.toString()}`);
     });
-    console.log(
-      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5'),
+    console.log("this sis the estimated: ",
+      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '0/1' as TradeSlippage),
     );
 
     const result = await cardano.swap(
-      'SPLASH',
       'ADA',
-      BigNumber(7),
+      'USDC',
+      BigNumber(1),
       true,
-      '5',
+      '1',
+      "1"
     );
 
-    // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");
-    // await cardano.cancel("38ff0dfeaacb0fdc8e2d2d9bcbaf79dda34f370126fa7b954fbd656d78fd168e");
+    // // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");
+    // // await cardano.cancel("38ff0dfeaacb0fdc8e2d2d9bcbaf79dda34f370126fa7b954fbd656d78fd168e");
 
     console.log('swap tx hash : ', result);
 
-    balances = cardano.getBalance(await cardano.getAddressUtxos(userAddress));
+    // balances = cardano.getBalance(await cardano.getAddressUtxos(userAddress));
 
-    console.log(balances.balance.toString());
-    Object.entries(balances.assets).forEach(([key, value]) => {
-      console.log(`Key: ${key}, Value: ${value.toString()}`);
-    });
+    // console.log(balances.balance.toString());
+    // Object.entries(balances.assets).forEach(([key, value]) => {
+    //   console.log(`Key: ${key}, Value: ${value.toString()}`);
+    // });
   });
 
   // Run all tests

@@ -87,7 +87,7 @@ export class Cardano {
     splashPools: Record<string, SplashPool[]>,
   ) {
     let new_network: MaestroSupportedNetworks
-    if (network === 'mainnet'){
+    if (network === 'mainnet') {
       new_network = "Mainnet"
     } else if (network === 'preprod')
       new_network = "Preprod"
@@ -126,16 +126,22 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // requires `loadAssets` and and `loadPools` to be called before
-    if (!this._assetMap) {
-      throw new Error('try to re-init the object !');
+    try {
+      if (Object.keys(this._assetMap).length === 0) {
+        throw new Error('try to re-init the object !');
+      }
+      // loading the metadata with backoff
+      Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+        Object.values({
+          ADA: this._assetMap['ADA'],
+          USDC: this._assetMap['USDC'],
+        }),
+        this._node,
+      );
+    } catch (e) {
+      console.error(e);
+      return;
     }
-
-    // loading the metadata with backoff
-    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}),
-      this._node,
-    );
-    return;
   }
 
   /**
@@ -498,8 +504,7 @@ export class Cardano {
 
         const tokenDecimals = isAda
           ? 6
-          : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
-            0);
+          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
         if (assets[tokenName] === undefined) {
           assets[tokenName] = BigNumber(0);
         }
@@ -609,7 +614,7 @@ export class Cardano {
       quoteCardanoToken,
       sell,
       amount,
-      priceLimit,
+      // priceLimit,
     );
 
     const decimals = sell
@@ -654,7 +659,7 @@ export class Cardano {
       Number(slippage),
     );
 
-    let txHash = await this.signAndSubmitTransaction(swapTx);
+    // let txHash = await this.signAndSubmitTransaction(swapTx);
 
     // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
 
@@ -666,7 +671,7 @@ export class Cardano {
       minOutput,
       sell,
       estimatedFee,
-      txHash,
+      'txHash',
     );
   }
 
@@ -850,6 +855,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
+      console.log(input, outputAsset);
       const tx = await this._dex
         .newTx()
         .spotOrder({
