@@ -233,9 +233,10 @@ export async function getSplashPools(
     // loading pools
     let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({
       duplicated: false,
-      verified: true,
+      verified: false
     });
-    console.log(verifiedPools)
+
+    console.log("this is verified pools", verifiedPools.length)
     let poolMap: Record<string, SplashPool[]> = {};
 
     verifiedPools.forEach((pool) => {

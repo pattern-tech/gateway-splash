@@ -87,7 +87,8 @@ export class Cardano {
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
   ) {
-    let new_network: MaestroSupportedNetworks
+    let new_network: MaestroSupportedNetworks;
+    network = network.toLowerCase();
     if (network === 'mainnet'){
       new_network = "Mainnet"
     } else if (network === 'preprod')

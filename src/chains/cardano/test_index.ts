@@ -209,9 +209,9 @@ async function runTests() {
 
   test('swap should perform a swap and return a TradeResponse', async () => {
     const cardano = Cardano.getInstance('Mainnet', 'test');
-    // await cardano.init();
+    await cardano.init();
 
-    // await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
+    await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
     // let userAddress =
     //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
 
