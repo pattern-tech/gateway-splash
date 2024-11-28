@@ -845,7 +845,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
-      console.log(input, outputAsset);
+
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -1041,10 +1041,15 @@ export class Cardano {
       BigNumber(price),
       Number(slippage),
     );
+
     if (!estimatedFee) {
+      const temp_base = sell ? baseToken : quoteToken
+      const temp_quote = sell ? quoteToken : baseToken
+      if (temp_base.name === temp_quote.name)
+        estimatedFee = '0';
       estimatedFee = await this.estimateFee(
-        (sell ? baseToken : quoteToken).token.withAmount(BigInt(this.toRaw(amount, decimals))),
-        (sell ? quoteToken : baseToken ).token.asset,
+        temp_base.token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        temp_quote.token.asset,
       );
     }
 
