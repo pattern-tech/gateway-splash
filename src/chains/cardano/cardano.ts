@@ -88,12 +88,10 @@ export class Cardano {
   ) {
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
-    if (network === 'mainnet'){
-      new_network = "Mainnet"
-    } else if (network === 'preprod')
-      new_network = "Preprod"
-    else
-      new_network = "Preview"
+    if (network === 'mainnet') {
+      new_network = 'Mainnet';
+    } else if (network === 'preprod') new_network = 'Preprod';
+    else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
       getMaestroConfig(new_network, config.network.nodeURL),
@@ -129,7 +127,10 @@ export class Cardano {
     // requires `loadAssets` and and `loadPools` to be called before
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}), // todo
+      Object.values({
+        ADA: this._assetMap['ADA'],
+        USDC: this._assetMap['USDC'],
+      }), // todo
       this._node,
     );
 
@@ -145,7 +146,6 @@ export class Cardano {
    */
   public static getInstance(network: string, name?: string): Cardano {
     try {
-
       const instanceName = name || network;
 
       // Initialize _instances if it doesn't exist
@@ -306,7 +306,7 @@ export class Cardano {
     let wallet = new CardanoWallet(mnemonic);
 
     await wallet.initialize();
-    await this.activateWallet(mnemonic)
+    await this.activateWallet(mnemonic);
     return wallet;
   }
 
@@ -355,7 +355,7 @@ export class Cardano {
       throw new Error('missing passphrase');
     }
     const mnemonic = this.decrypt(encryptedMnemonic, passphrase);
-    return this.getAccountFromMnemonic(mnemonic)
+    return this.getAccountFromMnemonic(mnemonic);
   }
 
   /**
@@ -630,8 +630,8 @@ export class Cardano {
       throw new HttpException(
         500,
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-          BigNumber(price).toFixed(decimals), 
-          BigNumber(priceLimit).toFixed(outputDecimals), 
+          BigNumber(price).toFixed(decimals),
+          BigNumber(priceLimit).toFixed(outputDecimals),
         ),
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
       );
@@ -876,7 +876,6 @@ export class Cardano {
     sell: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
-    
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
@@ -885,6 +884,7 @@ export class Cardano {
       baseToken.toUpperCase(),
       quoteToken.toUpperCase(),
     );
+
 
     let baseMetadata = await getTokenMetadata(
       realBaseToken.policyId,
@@ -982,7 +982,6 @@ export class Cardano {
       : (quoteToken.decimals as number);
 
     return {
-
       network: this.network,
       timestamp: Number(await this.getBlockTimestamp()),
       latency: 0,
@@ -1044,15 +1043,15 @@ export class Cardano {
     );
     if (!estimatedFee) {
       estimatedFee = await this.estimateFee(
-        baseToken.token.withAmount(BigInt(this.toRaw(amount, decimals))),
-        quoteToken.token.asset,
+        (sell ? baseToken : quoteToken).token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        (sell ? quoteToken : baseToken ).token.asset,
       );
     }
 
     return {
       base: baseToken.symbol === '' ? baseToken.name : baseToken.symbol,
       quote: quoteToken.symbol === '' ? quoteToken.name : quoteToken.symbol,
-      amount: String(amount), 
+      amount: String(amount),
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
       price,

@@ -121,9 +121,9 @@ async function runTests() {
     const cardano = Cardano.getInstance('mainnet', 'test');
     console.log("instance success")
     await cardano.init();
-    const utxos = await cardano.getAddressUtxos(
-      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
-    );
+    // const utxos = await cardano.getAddressUtxos(
+    //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+    // );
     
     console.log(await cardano.getNetworkHeight());
 
@@ -213,7 +213,12 @@ async function runTests() {
     //   console.log(`Key: ${key}, Value: ${value.toString()}`);
     // });
     console.log("this sis the estimated: ",
+      // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
+      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '0/1' as TradeSlippage),
+      await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
+      await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
       await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
+
     );
 
     // const result = await cardano.swap(
