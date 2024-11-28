@@ -104,7 +104,7 @@ export class Cardano {
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
     // this.timeout = config.network.timeOut;
-    this.defaultSlippage = "1" as TradeSlippage;
+    this.defaultSlippage = config.network.defaultSlippage as TradeSlippage;
     this._splashPools = splashPools;
   }
 
@@ -538,7 +538,6 @@ export class Cardano {
 
   /**
    * Performs a swap operation
-   * @param {CardanoWallet} wallet - The wallet performing the swap
    * @param {string} baseToken - The base token name
    * @param {string} quoteToken - The quote token name
    * @param {BigNumber} amount - The amount to swap
@@ -563,6 +562,9 @@ export class Cardano {
 
     if (!amount || amount.lte(0)) {
       throw new Error('Invalid swap amount');
+    }
+    if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
+      slippage = this.defaultSlippage;
     }
     let [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
@@ -877,6 +879,11 @@ export class Cardano {
     sell: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
+    
+    if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
+      slippage = this.defaultSlippage;
+    }
+
     let [realBaseToken, realQuoteToken] = this.validateTokens(
       baseToken.toUpperCase(),
       quoteToken.toUpperCase(),
