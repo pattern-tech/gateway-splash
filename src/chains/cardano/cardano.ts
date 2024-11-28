@@ -134,9 +134,10 @@ export class Cardano {
 
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}),
+      Object.values({'ADA': this._assetMap['ADA'], 'USDC': this._assetMap['USDC']}), // todo 
       this._node,
     );
+
     return;
   }
 
