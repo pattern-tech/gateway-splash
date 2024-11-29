@@ -1047,10 +1047,10 @@ export class Cardano {
       const temp_quote = sell ? quoteToken : baseToken
       if (temp_base.name === temp_quote.name)
         estimatedFee = '0';
-      estimatedFee = await this.estimateFee(
+      estimatedFee = this.fromRaw(BigNumber(await this.estimateFee(
         temp_base.token.withAmount(BigInt(this.toRaw(amount, decimals))),
         temp_quote.token.asset,
-      );
+      )), 6)
     }
 
     return {
