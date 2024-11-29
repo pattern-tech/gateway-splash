@@ -239,9 +239,6 @@ export async function getSplashPools(
     let poolMap: Record<string, SplashPool[]> = {};
 
     verifiedPools.forEach((pool) => {
-      if (pool.nft.name.includes("OADA")) {
-        console.log(pool)
-      }
       poolMap[String(pool.nft.nameBase16)] =
         poolMap[String(pool.nft.nameBase16)] || [];
       poolMap[String(pool.nft.nameBase16)].push(pool); // saves all verified pools, can be changed to only show one pool per pair
