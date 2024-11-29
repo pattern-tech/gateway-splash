@@ -845,7 +845,6 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
-
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -854,7 +853,11 @@ export class Cardano {
         })
         .complete();
 
-      return tx.wasm.body().fee().toString();
+      let ex_fee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
+console.log(ex_fee)
+      let total_fee = BigNumber(ex_fee).plus(BigNumber(1.1)).plus(BigNumber(1.5)).plus(BigNumber(0.9));
+
+      return total_fee.toString();
     } catch (error) {
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
@@ -884,7 +887,6 @@ export class Cardano {
       baseToken.toUpperCase(),
       quoteToken.toUpperCase(),
     );
-
 
     let baseMetadata = await getTokenMetadata(
       realBaseToken.policyId,
@@ -1043,14 +1045,13 @@ export class Cardano {
     );
 
     if (!estimatedFee) {
-      const temp_base = sell ? baseToken : quoteToken
-      const temp_quote = sell ? quoteToken : baseToken
-      if (temp_base.name === temp_quote.name)
-        estimatedFee = '0';
-      estimatedFee = this.fromRaw(BigNumber(await this.estimateFee(
+      const temp_base = sell ? baseToken : quoteToken;
+      const temp_quote = sell ? quoteToken : baseToken;
+      if (temp_base.name === temp_quote.name) estimatedFee = '0';
+      estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(BigInt(this.toRaw(amount, decimals))),
         temp_quote.token.asset,
-      )), 6)
+      );
     }
 
     return {
