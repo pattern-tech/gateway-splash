@@ -816,8 +816,8 @@ export class Cardano {
         })
         .complete();
 
-      let ex_fee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
-
+      let orderFee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
+      
       let minUTxoValue = BigNumber(
         (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
       );
@@ -825,7 +825,7 @@ export class Cardano {
       let splashOps = (await this._dex.api.getSplashOperationConfig())
         .operations.spotOrderV3.settings;
 
-      let total_fee = BigNumber(ex_fee)
+      let total_fee = BigNumber(orderFee)
         .plus(
           BigNumber(this.fromRaw(BigNumber(splashOps.worstOrderStepCost), 6)),
         )

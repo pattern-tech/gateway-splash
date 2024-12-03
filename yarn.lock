@@ -3984,10 +3984,10 @@
   resolved "https://registry.npmjs.org/@splashprotocol/api/-/api-2.0.0-beta.11.tgz"
   integrity sha512-3+IePTR2qMbpSnS7T6fvVRwZ8GvUufjt6wZao5GCbaFPBkI/xmb/i3BHhQgy8+rjmVfsMywUsZPmwhHrAEf3MQ==
 
-"@splashprotocol/cml-builder@2.0.0-beta.27":
-  version "2.0.0-beta.27"
-  resolved "https://registry.npmjs.org/@splashprotocol/cml-builder/-/cml-builder-2.0.0-beta.27.tgz"
-  integrity sha512-fz7flyHOalBGp4Z8pIutGo5z+PJ2oIAc6GYvT5laBZjMDAkpL0f1PX37NeCOGICtMBsoduaKtOD6pZCcG0QcxA==
+"@splashprotocol/cml-builder@2.0.0-beta.29":
+  version "2.0.0-beta.29"
+  resolved "https://registry.npmjs.org/@splashprotocol/cml-builder/-/cml-builder-2.0.0-beta.29.tgz"
+  integrity sha512-stNG+gzB1Pj5aot9UfTDgpyLJ1oJYh6W/XREaBavOTQi/1rFFnVTwQDL0kYvpSnLWkWmcf/oR1Qhv4tVZa1Skg==
   dependencies:
     "@dcspark/cardano-multiplatform-lib-browser" "^6.0.1"
     "@dcspark/cardano-multiplatform-lib-nodejs" "^6.0.1"
@@ -4006,13 +4006,13 @@
     js-encoding-utils "^0.7.3"
     mathjs "^13.2.0"
 
-"@splashprotocol/sdk@^2.0.0-beta.17":
-  version "2.0.0-beta.17"
-  resolved "https://registry.npmjs.org/@splashprotocol/sdk/-/sdk-2.0.0-beta.17.tgz"
-  integrity sha512-luNPuyNoMdVCuh1q43hiz4Ed7j0ryz/Jj5Le2mm1zpI6UOh5/KQ/yu+rxGth2tb4NXjdITqBrjwyCo6LfmUJUA==
+"@splashprotocol/sdk@^2.0.0-beta.19":
+  version "2.0.0-beta.19"
+  resolved "https://registry.npmjs.org/@splashprotocol/sdk/-/sdk-2.0.0-beta.19.tgz"
+  integrity sha512-cnzPafKhPL/cWYoM8LNEOOxajq4DKiIqwmslCHgOx+xIOKHjoLav6wza6V55wha1ZHpEDtmPYOhZ6gmvGuQ+nQ==
   dependencies:
     "@splashprotocol/api" "2.0.0-beta.11"
-    "@splashprotocol/cml-builder" "2.0.0-beta.27"
+    "@splashprotocol/cml-builder" "2.0.0-beta.29"
     "@splashprotocol/core" "2.0.0-beta.9"
 
 "@stablelib/binary@^1.0.1":
@@ -13904,6 +13904,8 @@ queue-microtask@^1.2.2, queue-microtask@^1.2.3:
 
 queue-tick@^1.0.0:
   version "1.0.0"
+  resolved "https://registry.npmjs.org/queue-tick/-/queue-tick-1.0.0.tgz"
+  integrity sha512-ULWhjjE8BmiICGn3G8+1L9wFpERNxkf8ysxkAer4+TFdRefDaXOCV5m92aMB9FtBVmn/8sETXLXY6BfW7hyaWQ==
 
 quick-lru@^5.1.1:
   version "5.1.1"
