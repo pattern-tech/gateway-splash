@@ -120,8 +120,8 @@ export class Cardano {
 
   /**
    * Asynchronously loads the tokens metadata in batches
-   * @requires  loadAssets Requires the loadAssets to be called before 
-   * @requires  loadPools Requires the loadPools to be called before 
+   * @requires  loadAssets Requires the loadAssets to be called before
+   * @requires  loadPools Requires the loadPools to be called before
    * @returns {Promise<void>}
    */
   private async loadTokenMetadata(): Promise<void> {
@@ -542,7 +542,7 @@ export class Cardano {
    * @param {BigNumber} amount - The amount to swap
    * @param {boolean} sell - Either the swap is sell or buy position
    * @param {string} priceLimit - Either the swap is a limit order or a market price swap
-  * @param {TradeSlippage} slippage - The slippage tolerance
+   * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<TradeResponse>} The trade response
    */
 
@@ -769,11 +769,11 @@ export class Cardano {
       .complete();
   }
 
-   /**
-   * Cancels an unfilled spot order by its submitter tx hash. 
-   * @param {string} txHash - The transaction that initiated the spot order 
+  /**
+   * Cancels an unfilled spot order by its submitter tx hash.
+   * @param {string} txHash - The transaction that initiated the spot order
    * @param {number} index - The index which the order is placed in the tx objects
-   * @returns {Promise<string>} cancellation tx hash  
+   * @returns {Promise<string>} cancellation tx hash
    */
   public async cancel(txHash: string, index: number = 0): Promise<string> {
     try {
@@ -808,6 +808,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
+      console.log(input);
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -817,15 +818,20 @@ export class Cardano {
         .complete();
 
       let ex_fee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
-      
-      let minUtxoValue = BigNumber(
+
+      let minUTxoValue = BigNumber(
         (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
       );
 
+      let splashOps = (await this._dex.api.getSplashOperationConfig())
+        .operations.spotOrderV3.settings;
+
       let total_fee = BigNumber(ex_fee)
-        .plus(BigNumber(1.1))
-        .plus(BigNumber(0.9))
-        .plus(BigNumber(1.5));
+        .plus(
+          BigNumber(this.fromRaw(BigNumber(splashOps.worstOrderStepCost), 6)),
+        )
+        .plus(BigNumber(this.fromRaw(BigNumber(splashOps.executorFee), 6)))
+        .plus(BigNumber.max(BigNumber(1.5), minUTxoValue));
 
       return total_fee.toString();
     } catch (error) {
@@ -905,6 +911,7 @@ export class Cardano {
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
+    console.log(blockInfo);
     return Number(blockInfo.data.timestamp);
   }
 
@@ -1211,5 +1218,4 @@ export class Cardano {
   public async getTxState(txHash: string): Promise<TxManagerState | undefined> {
     return await this._node.txManager.txManagerState(txHash);
   }
-
 }
