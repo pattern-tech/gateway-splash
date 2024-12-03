@@ -808,7 +808,6 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
-      console.log(input);
       const tx = await this._dex
         .newTx()
         .spotOrder({
