@@ -911,8 +911,8 @@ export class Cardano {
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
-    console.log(blockInfo);
-    return Number(blockInfo.data.timestamp);
+
+    return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
   }
 
   /**
@@ -962,7 +962,7 @@ export class Cardano {
 
     return {
       network: this.network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       base: baseToken.symbol,
       quote: quoteToken.symbol,
@@ -1039,7 +1039,7 @@ export class Cardano {
       expectedAmount: minOutput.toString(),
       price,
       network: this.network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
