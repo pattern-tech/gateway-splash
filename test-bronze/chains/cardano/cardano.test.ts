@@ -15,6 +15,7 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
 }));
 jest.mock('@splashprotocol/sdk', () => ({
   isOOROrder: jest.fn(),
+  stringToHex: jest.fn(),
 }));
 let cardano: Cardano;
 
@@ -148,6 +149,60 @@ describe('Cardano', () => {
     it('Shopuld return the Network height', async () => {
       jest.spyOn(cardano, 'getNetworkHeight').mockResolvedValue(123);
       expect(await cardano.getCurrentBlockNumber()).toEqual(124);
+    });
+  });
+
+  describe('getAssetBalance', () => {
+    it('Should be defined', () => {
+      expect(cardano.getAssetBalance).toBeDefined();
+    });
+    it(`Should throw new Error when assetName is equal to 'LOVELACE' or 'ADA'`, async () => {
+      await expect(cardano.getAssetBalance('1', 'LOVELACE')).rejects.toThrow(
+        'use `getAdaBalance` function !',
+      );
+
+      await expect(cardano.getAssetBalance('1', 'ADA')).rejects.toThrow(
+        'use `getAdaBalance` function !',
+      );
+    });
+    it('Should throw new Error when asset name is not valid on the chian', async () => {
+      jest.spyOn(cardano, 'findToken').mockReturnValue(undefined);
+      await expect(
+        cardano.getAssetBalance('1', 'someInvalidToken'),
+      ).rejects.toThrow(`Asset 'someInvalidToken' not found in cardano Node!`);
+    });
+    it('Should throw new Error when token metadata is not found', async () => {
+      jest
+        .spyOn(cardano, 'findToken')
+        .mockReturnValue({ policyId: '123', name: 'validToken' } as any);
+      jest.spyOn(node, 'getTokenMetadata').mockResolvedValue(null);
+
+      await expect(cardano.getAssetBalance('1', 'validToken')).rejects.toThrow(
+        `Error fetching account assets from cardano Node:`,
+      );
+    });
+    it('Should calculate token balance correctly', async () => {
+      const token: any = {
+        token: { asset: { name: 'name' } },
+        policyId: '123',
+        name: 'validToken',
+        decimals: 2,
+        symbol: 'VLT',
+      };
+      jest.spyOn(cardano, 'findToken').mockReturnValue(token);
+      jest
+        .spyOn(node, 'getTokenMetadata')
+        .mockResolvedValue({ decimals: 2, ticker: 'VLT' } as any);
+      jest
+        .spyOn(cardano, 'getAddressUtxos')
+        .mockResolvedValue([
+          { assets: [{ unit: '123validToken', amount: '10' }] },
+          { assets: [{ unit: '123validToken', amount: '20' }] },
+        ] as any);
+      jest.spyOn(cardano as any, 'fromRaw').mockReturnValue('30.00');
+
+      const result = await cardano.getAssetBalance('1', 'validToken');
+      expect(result).toBe('30.00');
     });
   });
 });
