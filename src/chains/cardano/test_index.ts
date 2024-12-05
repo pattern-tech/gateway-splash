@@ -117,24 +117,24 @@ async function runTests() {
   // assert(balance === '1.446308', 'Expected HUNT balance to be 1.446308');
   // });
 
-  test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
-    const cardano = Cardano.getInstance('mainnet', 'test');
-    console.log("instance success")
-    await cardano.init();
-    // const utxos = await cardano.getAddressUtxos(
-    //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
-    // );
+  // test('4.getBalance should return ADA and non-ADA balance of an address', async () => {
+  //   const cardano = Cardano.getInstance('mainnet', 'test');
+  //   console.log("instance success")
+  //   await cardano.init();
+  //   // const utxos = await cardano.getAddressUtxos(
+  //   //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
+  //   // );
     
-    console.log(await cardano.getNetworkHeight());
+  //   console.log(await cardano.getNetworkHeight());
 
-    // console.log(utxos);
-    // const balance = cardano.getBalance(utxos);
-    // console.log(balance.balance.toString());
-    // Object.keys(balance.assets).forEach((key) =>
-    //   console.log(`${key}: ${String(balance.assets[key])}`),
-    // );
-    // assert(balance);
-  });
+  //   // console.log(utxos);
+  //   // const balance = cardano.getBalance(utxos);
+  //   // console.log(balance.balance.toString());
+  //   // Object.keys(balance.assets).forEach((key) =>
+  //   //   console.log(`${key}: ${String(balance.assets[key])}`),
+  //   // );
+  //   // assert(balance);
+  // });
 
   // test('5.getAccountFromMnemonic must return proper bech32 wallet address', async () => {
   //   const cardano = Cardano.getInstance('Mainnet', 'test');
@@ -201,20 +201,20 @@ async function runTests() {
     await cardano.init();
 
     await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
-    // let userAddress =
-    //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
+    let userAddress =
+      'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v';
 
-    // let balances = cardano.getBalance(
-    //   await cardano.getAddressUtxos(userAddress),
-    // );
+    let balances = cardano.getBalance(
+      await cardano.getAddressUtxos(userAddress),
+    );
 
-    // console.log(balances.balance.toString());
-    // Object.entries(balances.assets).forEach(([key, value]) => {
-    //   console.log(`Key: ${key}, Value: ${value.toString()}`);
-    // });
+    console.log(balances.balance.toString());
+    Object.entries(balances.assets).forEach(([key, value]) => {
+      console.log(`Key: ${key}, Value: ${value.toString()}`);
+    });
     console.log("this sis the estimated: ",
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
-      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '0/1' as TradeSlippage),
+      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5' as TradeSlippage),
       // await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
@@ -249,6 +249,6 @@ async function runTests() {
   }
 
   console.log(`\nTest Results: ${passed} passed, ${failed} failed`);
-  // process.exit(failed > 0 ? 1 : 0);
+  process.exit(failed > 0 ? 1 : 0);
 }
 runTests();

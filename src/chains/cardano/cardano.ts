@@ -73,7 +73,6 @@ export class Cardano {
   public minFee: number;
   public controller: CardanoController;
   private utxosLimit: number;
-  // private timeout: number;
   private defaultSlippage: TradeSlippage;
 
   /**
@@ -121,10 +120,11 @@ export class Cardano {
 
   /**
    * Asynchronously loads the tokens metadata in batches
+   * @requires  loadAssets Requires the loadAssets to be called before
+   * @requires  loadPools Requires the loadPools to be called before
    * @returns {Promise<void>}
    */
   private async loadTokenMetadata(): Promise<void> {
-    // requires `loadAssets` and and `loadPools` to be called before
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
       Object.values({
@@ -205,6 +205,7 @@ export class Cardano {
   ): Promise<boolean> {
     return await isOOROrder(`${hash}:${index}`, this._dex);
   }
+
   /**
    * Gets the list of stored assets
    * @returns {Array<CardanoToken>}
@@ -260,7 +261,7 @@ export class Cardano {
     return connectedInstances;
   }
 
-  /** // @arman check this function
+  /**
    * Gets the current block number
    * @returns {Promise<number>}
    */
@@ -272,7 +273,7 @@ export class Cardano {
   /**
    * Gets either all of the unspent tx's or Utxos with specific address for a given address
    * @param {string} address - The address to get unspent transactions for
-   * @param {string} asset - (optional) The asset name
+   * @param {TxRequestParams} params - Tx request filters
    * @returns {Promise<UtxoWithSlot[]>}
    */
   async getAddressUtxos(
@@ -313,7 +314,7 @@ export class Cardano {
   /**
    * Bridges a hot wallet to cip30 wallet and selects it into the Splash instance.
    * @param {string} mnemonic - The mnemonic phrase
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   public async activateWallet(mnemonic: string): Promise<void> {
     this._dex.selectWallet(
@@ -321,6 +322,7 @@ export class Cardano {
     );
     return;
   }
+
   /**
    * Encrypts a secret using a password
    * @param {string} secret - The secret to encrypt
@@ -449,7 +451,7 @@ export class Cardano {
 
   /**
    * Gets the balance of ADA
-   * @param {UtxoWithSlot[]} utxos - The unspent transaction outputs
+   * @param {string} accountAddress - The user address
    * @returns {Promise<string>}
    */
   public async getAdaBalance(accountAddress: string): Promise<string> {
@@ -521,7 +523,7 @@ export class Cardano {
    * Loads assets from the DEX pools
    * @private
    */
-  private async loadAssets() {
+  private async loadAssets(): Promise<void> {
     this._assetMap = getAssetsFromPools(this._splashPools);
   }
 
@@ -538,10 +540,9 @@ export class Cardano {
    * @param {string} baseToken - The base token name
    * @param {string} quoteToken - The quote token name
    * @param {BigNumber} amount - The amount to swap
-   * @param {string} priceLimit - Either the swap is a limit order or a market price swap
    * @param {boolean} sell - Either the swap is sell or buy position
+   * @param {string} priceLimit - Either the swap is a limit order or a market price swap
    * @param {TradeSlippage} slippage - The slippage tolerance
-   * @param {number} orderTimeout - The number seconds to wait before checking the tx satisfaction status
    * @returns {Promise<TradeResponse>} The trade response
    */
 
@@ -667,50 +668,6 @@ export class Cardano {
     );
   }
 
-  // private async confirmOrder(
-  //   hash: string,
-  //   index: number = 0,
-  //   orderTimeout: number,
-  // ): Promise<OrderConfirmation> {
-  //   // First check after 5 seconds
-  //   return new Promise((resolve) => {
-  //     setTimeout(async () => {
-  //       try {
-  //         const initialConfirmation = await this.checkSatisfaction(hash, index);
-
-  //         if (initialConfirmation) {
-  //           resolve({ confirmed: true, txHash: '' });
-  //           return;
-  //         }
-
-  //         setTimeout(
-  //           async () => {
-  //             try {
-  //               const finalConfirmation = await this.checkSatisfaction(
-  //                 hash,
-  //                 index,
-  //               );
-
-  //               if (!finalConfirmation) {
-  //                 // If still not satisfied after full timeout, cancel
-  //                 const cancelTxHash = await this.cancel(hash, index);
-  //                 resolve({ confirmed: false, txHash: cancelTxHash });
-  //               } else {
-  //                 resolve({ confirmed: true, txHash: '' });
-  //               }
-  //             } catch (error) {
-  //               resolve({ confirmed: false, txHash: '' });
-  //             }
-  //           },
-  //           (orderTimeout - 5) * 1000,
-  //         ); // Subtract the initial 5 seconds
-  //       } catch (error) {
-  //         resolve({ confirmed: false, txHash: '' });
-  //       }
-  //     }, 5000);
-  //   });
-  // }
-
   /**
    * Validates the base and quote tokens for a swap
    * @param {string} baseToken - The symbol or name of the base token
@@ -812,6 +769,12 @@ export class Cardano {
       .complete();
   }
 
+  /**
+   * Cancels an unfilled spot order by its submitter tx hash.
+   * @param {string} txHash - The transaction that initiated the spot order
+   * @param {number} index - The index which the order is placed in the tx objects
+   * @returns {Promise<string>} cancellation tx hash
+   */
   public async cancel(txHash: string, index: number = 0): Promise<string> {
     try {
       console.log(`order failure, cancelling ${txHash}:${index}`);
@@ -853,9 +816,21 @@ export class Cardano {
         })
         .complete();
 
-      let ex_fee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
-console.log(ex_fee)
-      let total_fee = BigNumber(ex_fee).plus(BigNumber(1.1)).plus(BigNumber(1.5)).plus(BigNumber(0.9));
+      let orderFee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
+      
+      let minUTxoValue = BigNumber(
+        (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
+      );
+
+      let splashOps = (await this._dex.api.getSplashOperationConfig())
+        .operations.spotOrderV3.settings;
+
+      let total_fee = BigNumber(orderFee)
+        .plus(
+          BigNumber(this.fromRaw(BigNumber(splashOps.worstOrderStepCost), 6)),
+        )
+        .plus(BigNumber(this.fromRaw(BigNumber(splashOps.executorFee), 6)))
+        .plus(BigNumber.max(BigNumber(1.5), minUTxoValue));
 
       return total_fee.toString();
     } catch (error) {
@@ -920,7 +895,7 @@ console.log(ex_fee)
   /**
    * Finds a token by its symbol or name
    * @param {string} symbolOrName - The token symbol or name
-   * @returns {CardanoToken}
+   * @returns {CardanoToken | undefined}
    */
   public findToken(symbolOrName: string): CardanoToken | undefined {
     const token = this._assetMap[symbolOrName];
@@ -935,13 +910,14 @@ console.log(ex_fee)
     const blockInfo = await this._node.blocks.blockInfo(
       String(await this.getNetworkHeight()),
     );
-    return Number(blockInfo.data.timestamp);
+
+    return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
   }
 
   /**
    * Submits a transaction
-   * @param {CardanoWallet} wallet - The wallet submitting the transaction
-   * @param {Buffer} tx - The transaction to submit
+   * @param {Transaction} tx - unsigned built transaction object
+   * @returns {Promise<string>} Submitted transaction hash
    */
   private async signAndSubmitTransaction(tx: Transaction): Promise<string> {
     try {
@@ -985,7 +961,7 @@ console.log(ex_fee)
 
     return {
       network: this.network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       base: baseToken.symbol,
       quote: quoteToken.symbol,
@@ -1062,7 +1038,7 @@ console.log(ex_fee)
       expectedAmount: minOutput.toString(),
       price,
       network: this.network,
-      timestamp: Number(await this.getBlockTimestamp()),
+      timestamp: await this.getBlockTimestamp(),
       latency: 0,
       gasPrice: this.minFee, // ada price to what ? not applicable
       gasPriceToken: 'ADA',
