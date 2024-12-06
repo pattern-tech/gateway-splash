@@ -1,5 +1,5 @@
 import { Cardano } from '../../../src/chains/cardano/cardano';
-import * as node from '../../../src/chains/cardano/cardano.utils';
+import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
 import { isOOROrder } from '@splashprotocol/sdk';
 jest.mock('@maestro-org/typescript-sdk', () => ({
@@ -31,8 +31,8 @@ describe('Cardano', () => {
   };
   const network = 'mainnet';
   beforeEach(() => {
-    jest.spyOn(node, 'getMaestroConfig').mockReturnValue({} as any);
-    jest.spyOn(node, 'getSplashInstance').mockReturnValue({} as any);
+    jest.spyOn(utils, 'getMaestroConfig').mockReturnValue({} as any);
+    jest.spyOn(utils, 'getSplashInstance').mockReturnValue({} as any);
     cardano = new Cardano('mainnet', mockConfig, 100, {} as any);
   });
   afterEach(() => {
@@ -43,8 +43,21 @@ describe('Cardano', () => {
   });
 
   it('Should call getMaestroConfig and getSplashInstance with the correct parameters when instantiating', () => {
-    expect(node.getMaestroConfig).toHaveBeenCalledWith('Mainnet', 'nodeURL');
-    expect(node.getSplashInstance).toHaveBeenCalledWith('Mainnet');
+    expect(utils.getMaestroConfig).toHaveBeenCalledWith('Mainnet', 'nodeURL');
+    expect(utils.getSplashInstance).toHaveBeenCalledWith('Mainnet');
+  });
+  it('Should create cardano instance when network is equal to "preprod"', () => {
+    const preprodInstance = new Cardano('preprod', mockConfig, 100, {} as any);
+    expect(preprodInstance.network).toEqual('preprod');
+  });
+  it('Should create cardano instance with "preview" network, when network is not equal to "mainnet" and "preprod"', () => {
+    const preprodInstance = new Cardano(
+      'someOtherNetwork',
+      mockConfig,
+      100,
+      {} as any,
+    );
+    expect(preprodInstance.network).toEqual('preview');
   });
 
   describe('init', () => {
@@ -67,20 +80,20 @@ describe('Cardano', () => {
     });
   });
 
-  // describe('loadTokenMetadata', () => {
-  //   it('Should be defined', () => {
-  //     expect(cardano['loadTokenMetadata']).toBeDefined();
-  //   });
-  //   it('should throw an error if _assetMap is an empty object', async () => {
-  //     // Arrange
-  //     jest.spyOn(console, 'error').mockReturnValue({} as any);
-  //     cardano['_assetMap'] = {};
-  //     // Act
-  //     await cardano['loadTokenMetadata']();
-  //     // Assert
-  //     expect(console.error).toHaveBeenCalledWith('try to re-init the object !');
-  //   });
-  // });
+  describe('loadTokenMetadata', () => {
+    it('Should be defined', () => {
+      expect(cardano['loadTokenMetadata']).toBeDefined();
+    });
+    // it('should throw an error if _assetMap is an empty object', async () => {
+    //   // Arrange
+    //   jest.spyOn(console, 'error').mockReturnValue({} as any);
+    //   cardano['_assetMap'] = {};
+    //   // Act
+    //   await cardano['loadTokenMetadata']();
+    //   // Assert
+    //   expect(console.error).toHaveBeenCalledWith('try to re-init the object !');
+    // });
+  });
 
   describe('getInstance', () => {
     it('Should be defined', () => {
@@ -104,6 +117,31 @@ describe('Cardano', () => {
       expect(JSON.stringify(cardanoInstance)).toBe(
         JSON.stringify(cachedInstance),
       );
+    });
+    it('should throw an error if creating new Cardano instance fails', () => {
+      jest.spyOn(config, 'getCardanoConfig').mockReturnValue('junkData' as any);
+
+      expect(() => Cardano.getInstance('mockNetwork')).toThrow(
+        `Failed to create Cardano instance: TypeError: Cannot read properties of undefined (reading 'nodeURL')`,
+      );
+    });
+  });
+
+  describe('node', () => {
+    it('Should be defined', () => {
+      expect(cardano.node).toBeDefined();
+    });
+    it('Shopuld return the cardano node', () => {
+      cardano['_node'] = {} as any;
+      expect(cardano.node).toEqual(cardano['_node']);
+    });
+  });
+  describe('network', () => {
+    it('Should be defined', () => {
+      expect(cardano.network).toBeDefined();
+    });
+    it('Shopuld return the cardano node', () => {
+      expect(cardano.network).toEqual('mainnet');
     });
   });
 
@@ -175,7 +213,7 @@ describe('Cardano', () => {
       jest
         .spyOn(cardano, 'findToken')
         .mockReturnValue({ policyId: '123', name: 'validToken' } as any);
-      jest.spyOn(node, 'getTokenMetadata').mockResolvedValue(null);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValue(null);
 
       await expect(cardano.getAssetBalance('1', 'validToken')).rejects.toThrow(
         `Error fetching account assets from cardano Node:`,
@@ -191,7 +229,7 @@ describe('Cardano', () => {
       };
       jest.spyOn(cardano, 'findToken').mockReturnValue(token);
       jest
-        .spyOn(node, 'getTokenMetadata')
+        .spyOn(utils, 'getTokenMetadata')
         .mockResolvedValue({ decimals: 2, ticker: 'VLT' } as any);
       jest
         .spyOn(cardano, 'getAddressUtxos')
