@@ -26,6 +26,11 @@ jest.mock('@splashprotocol/sdk', () => ({
   isOOROrder: jest.fn(),
   stringToHex: jest.fn(),
 }));
+jest.mock('../../../src/chains/cardano/wallet.service', () => ({
+  CardanoWallet: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn().mockResolvedValue(null),
+  })),
+}));
 let cardano: Cardano;
 
 describe('Cardano', () => {
@@ -295,6 +300,20 @@ describe('Cardano', () => {
       await expect(cardano.getAddressUtxos('mockAddress')).rejects.toThrow(
         'Network Error',
       );
+    });
+  });
+  // CardanoWallet
+  describe('getAccountFromMnemonic', () => {
+    it('Should be defined', () => {
+      expect(cardano.getAccountFromMnemonic).toBeDefined();
+    });
+    it('Should create wallet initialize and activate it', async () => {
+      // Arrange
+      jest.spyOn(cardano, 'activateWallet').mockResolvedValue();
+      // Act
+      await cardano.getAccountFromMnemonic('fakeMnemonic');
+      // Assert
+      expect(cardano.activateWallet).toHaveBeenCalledWith('fakeMnemonic');
     });
   });
 
