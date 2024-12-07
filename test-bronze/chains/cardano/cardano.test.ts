@@ -2,6 +2,7 @@ import { Cardano } from '../../../src/chains/cardano/cardano';
 import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
 import { isOOROrder } from '@splashprotocol/sdk';
+import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
     general: {
@@ -9,6 +10,14 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
         data: {
           height: 12345,
         },
+      }),
+    },
+    addresses: {
+      utxosByAddress: jest.fn().mockResolvedValue({
+        data: [
+          { tx_hash: 'tx1', index: 0, slot: 100 },
+          { tx_hash: 'tx2', index: 1, slot: 101 },
+        ],
       }),
     },
   })),
@@ -180,6 +189,38 @@ describe('Cardano', () => {
       expect(await cardano.getNetworkHeight()).toEqual(12345);
     });
   });
+  describe('close', () => {
+    it('Should be defined', () => {
+      expect(cardano.close).toBeDefined();
+    });
+    it('Should return nothing', async () => {
+      expect(await cardano.close()).not.toBeDefined();
+    });
+  });
+  describe('getConnectedInstances', () => {
+    it('Should be defined', () => {
+      expect(Cardano.getConnectedInstances).toBeDefined();
+    });
+    it('should return a correct object when instances are connected', () => {
+      // Arrange: Mock _instances with multiple Cardano instances
+      const mockInstance1 = { someProperty: 'value1' };
+      const mockInstance2 = { someProperty: 'value2' };
+      Cardano['_instances'] = new Map([
+        ['instance1', mockInstance1],
+        ['instance2', mockInstance2],
+      ]) as any;
+      const result = Cardano.getConnectedInstances();
+      expect(result).toEqual({
+        instance1: mockInstance1,
+        instance2: mockInstance2,
+      });
+    });
+    it('should return an empty object when no instances are connected', () => {
+      Cardano['_instances'] = undefined as any;
+      const result = Cardano.getConnectedInstances();
+      expect(result).toEqual({});
+    });
+  });
   describe('getCurrentBlockNumber', () => {
     it('Should be defined', () => {
       expect(cardano.getCurrentBlockNumber).toBeDefined();
@@ -187,6 +228,73 @@ describe('Cardano', () => {
     it('Shopuld return the Network height', async () => {
       jest.spyOn(cardano, 'getNetworkHeight').mockResolvedValue(123);
       expect(await cardano.getCurrentBlockNumber()).toEqual(124);
+    });
+  });
+
+  describe('getAddressUtxos', () => {
+    it('Should be defined', () => {
+      expect(cardano.getAddressUtxos).toBeDefined();
+    });
+    it('should return utxos successfully when the node responds correctly', async () => {
+      const result = await cardano.getAddressUtxos('mockAddress');
+
+      // Assert: Ensure the result matches the mock UTXOs
+      expect(result).toEqual([
+        { tx_hash: 'tx1', index: 0, slot: 100 },
+        { tx_hash: 'tx2', index: 1, slot: 101 },
+      ]);
+      expect(cardano['_node'].addresses.utxosByAddress).toHaveBeenCalledWith(
+        'mockAddress',
+        {
+          count: cardano['utxosLimit'],
+          order: 'desc',
+          cursor: null,
+          asset: null,
+        },
+      );
+    });
+    it('should return utxos with custom params when provided', async () => {
+      // Arrange: Mock the response from the node with custom params
+      const customParams: TxRequestParams = {
+        limit: 5,
+        sortDirection: 'asc',
+        offset: '10',
+        asset: 'mockAsset',
+      };
+      // Act: Call the method with custom params
+      const result = await cardano.getAddressUtxos(
+        [
+          { tx_hash: 'tx1', index: 0, slot: 100 },
+          { tx_hash: 'tx2', index: 1, slot: 101 },
+        ] as any,
+        customParams,
+      );
+
+      // Assert: Ensure the result matches the mock UTXOs and that the correct params were used
+      expect(result).toEqual([
+        { tx_hash: 'tx1', index: 0, slot: 100 },
+        { tx_hash: 'tx2', index: 1, slot: 101 },
+      ]);
+      expect(cardano['_node'].addresses.utxosByAddress).toHaveBeenCalledWith(
+        [
+          { tx_hash: 'tx1', index: 0, slot: 100 },
+          { tx_hash: 'tx2', index: 1, slot: 101 },
+        ],
+        {
+          asset: 'mockAsset',
+          count: 5,
+          cursor: '10',
+          order: 'asc',
+        },
+      );
+    });
+    it('should throw an error when the node fails to respond', async () => {
+      jest
+        .spyOn(cardano['_node'].addresses, 'utxosByAddress')
+        .mockRejectedValue(new Error('Network Error'));
+      await expect(cardano.getAddressUtxos('mockAddress')).rejects.toThrow(
+        'Network Error',
+      );
     });
   });
 
