@@ -1,7 +1,7 @@
 import { Cardano } from '../../../src/chains/cardano/cardano';
 import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
-import { isOOROrder } from '@splashprotocol/sdk';
+import { HotWallet, isOOROrder } from '@splashprotocol/sdk';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
@@ -25,6 +25,9 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
 jest.mock('@splashprotocol/sdk', () => ({
   isOOROrder: jest.fn(),
   stringToHex: jest.fn(),
+  HotWallet: {
+    fromSeed: jest.fn(),
+  },
 }));
 jest.mock('../../../src/chains/cardano/wallet.service', () => ({
   CardanoWallet: jest.fn().mockImplementation(() => ({
@@ -302,7 +305,7 @@ describe('Cardano', () => {
       );
     });
   });
-  // CardanoWallet
+
   describe('getAccountFromMnemonic', () => {
     it('Should be defined', () => {
       expect(cardano.getAccountFromMnemonic).toBeDefined();
@@ -314,6 +317,48 @@ describe('Cardano', () => {
       await cardano.getAccountFromMnemonic('fakeMnemonic');
       // Assert
       expect(cardano.activateWallet).toHaveBeenCalledWith('fakeMnemonic');
+    });
+  });
+
+  describe('activateWallet', () => {
+    it('Should be defined', () => {
+      expect(cardano.activateWallet).toBeDefined();
+    });
+    it('Should call selectWallet with the correct parameters', async () => {
+      cardano['_dex'] = {
+        selectWallet: jest.fn(),
+        explorer: 'mockExplorer',
+      } as any; // Mock _dex object
+      // Act
+      await cardano.activateWallet('fakeMnemonic');
+      // Assert
+      expect(cardano['_dex'].selectWallet).toHaveBeenCalledTimes(1);
+      expect(cardano['_dex'].selectWallet).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
+    it('Should call fromSeed method from HotWallet with the correct parameters', async () => {
+      // Mock the necessary utils and the getSplashInstance return value
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        explorer: 'mockExplorer',
+        selectWallet: jest.fn(), // Mock the selectWallet method
+      } as any);
+      // Create a new instance of Cardano and mock _dex
+      const newCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(HotWallet, 'fromSeed').mockResolvedValue({} as any);
+      const selectWalletMock = newCardano['_dex'].selectWallet as jest.Mock;
+      selectWalletMock.mockImplementationOnce((callback) => {
+        callback(); // This will call HotWallet.fromSeed
+      });
+      // Act
+      await newCardano.activateWallet('fakeMnemonic');
+      // Assert
+      expect(newCardano['_dex'].selectWallet).toHaveBeenCalledTimes(1);
+      expect(HotWallet.fromSeed).toHaveBeenCalledTimes(1);
+      expect(HotWallet.fromSeed).toHaveBeenCalledWith(
+        'fakeMnemonic',
+        'mockExplorer',
+      );
     });
   });
 
