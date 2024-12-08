@@ -2,7 +2,9 @@ import { Cardano } from '../../../src/chains/cardano/cardano';
 import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
 import { HotWallet, isOOROrder } from '@splashprotocol/sdk';
+import fse from 'fs-extra';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
+import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
     general: {
@@ -359,6 +361,129 @@ describe('Cardano', () => {
         'fakeMnemonic',
         'mockExplorer',
       );
+    });
+  });
+
+  describe('encrypt', () => {
+    const secret = 'mySecret';
+    const password = 'myPassword';
+    it('Should be defined', () => {
+      expect(cardano.encrypt).toBeDefined();
+    });
+    it('Should encrypt a secret with a given password', () => {
+      const encryptedText = cardano.encrypt(secret, password);
+      expect(encryptedText).toMatch(/^[0-9a-fA-F]{32}:[0-9a-fA-F]+$/);
+    });
+
+    it('Should produce different encryption outputs for different secrets', () => {
+      const encryptedText1 = cardano.encrypt('secret1', password);
+      const encryptedText2 = cardano.encrypt('secret2', password);
+      expect(encryptedText1).not.toBe(encryptedText2);
+    });
+
+    it('Should produce different encryption outputs for different passwords', () => {
+      const encryptedText1 = cardano.encrypt(secret, 'password1');
+      const encryptedText2 = cardano.encrypt(secret, 'password2');
+      expect(encryptedText1).not.toBe(encryptedText2);
+    });
+
+    it('Should produce different IVs for different encryptions', () => {
+      const encryptedText1 = cardano.encrypt(secret, password);
+      const encryptedText2 = cardano.encrypt(secret, password);
+      // Extract IVs from the encrypted texts
+      const [iv1] = encryptedText1.split(':');
+      const [iv2] = encryptedText2.split(':');
+      expect(iv1).not.toBe(iv2);
+    });
+
+    it('Should handle edge case where password is longer than 32 bytes', () => {
+      const longPassword = 'a'.repeat(50); // 50 bytes password
+      const encryptedText = cardano.encrypt(secret, longPassword);
+      expect(encryptedText).toMatch(/^[0-9a-fA-F]{32}:[0-9a-fA-F]+$/);
+    });
+  });
+  describe('getAccountFromAddress', () => {
+    beforeEach(() => {
+      jest.spyOn(fse, 'readFile').mockResolvedValue('file' as any);
+    });
+    it('Should be defined', () => {
+      expect(cardano.getAccountFromAddress).toBeDefined();
+    });
+    it('Should throw new Error if passphrase is invalid', async () => {
+      jest
+        .spyOn(ConfigManagerCertPassphrase, 'readPassphrase')
+        .mockReturnValue(undefined);
+      await expect(cardano.getAccountFromAddress('address')).rejects.toThrow(
+        'missing passphrase',
+      );
+      expect(fse.readFile).toHaveBeenCalledWith(
+        './conf/wallets/cardano/address.json',
+        'utf8',
+      );
+    });
+    it('Should return account from address given', async () => {
+      jest
+        .spyOn(ConfigManagerCertPassphrase, 'readPassphrase')
+        .mockReturnValue('passphrase');
+      jest.spyOn(cardano, 'decrypt').mockReturnValue('mnemonic');
+      jest
+        .spyOn(cardano, 'getAccountFromMnemonic')
+        .mockReturnValue('cardano Accont' as any);
+      const result = await cardano.getAccountFromAddress('address');
+      expect(cardano.decrypt).toHaveBeenCalledWith('file', 'passphrase');
+      expect(ConfigManagerCertPassphrase.readPassphrase).toHaveBeenCalled();
+      expect(fse.readFile).toHaveBeenCalledWith(
+        './conf/wallets/cardano/address.json',
+        'utf8',
+      );
+      expect(cardano.getAccountFromMnemonic).toHaveBeenCalledWith('mnemonic');
+      expect(result).toEqual('cardano Accont');
+    });
+  });
+
+  describe('decrypt', () => {
+    const secret = 'mySecret';
+    it('Should be defined', () => {
+      expect(cardano.decrypt).toBeDefined();
+    });
+    it('Should decrypt an encrypted secret correctly', () => {
+      // Arrange: Set up the secret and password, and encrypt the secret
+      const password = 'myPassword';
+      const encryptedText = cardano.encrypt(secret, password);
+      // Act: Call the decrypt method
+      const decryptedText = cardano.decrypt(encryptedText, password);
+      // Assert: Verify that the decrypted text matches the original secret
+      expect(decryptedText).toBe(secret);
+    });
+
+    it('Should fail to decrypt with wrong password', () => {
+      // Arrange: Set up the secret, correct password, wrong password, and encrypt the secret
+      const correctPassword = 'correctPassword';
+      const wrongPassword = 'wrongPassword';
+      const encryptedText = cardano.encrypt(secret, correctPassword);
+      // Act & Assert: Call the decrypt method with the wrong password and expect an error
+      expect(() => {
+        cardano.decrypt(encryptedText, wrongPassword);
+      }).toThrow();
+    });
+
+    it('Should handle edge case where password is longer than 32 bytes', () => {
+      // Arrange: Set up the secret and a long password, and encrypt the secret
+      const longPassword = 'a'.repeat(50); // 50 bytes password
+      const encryptedText = cardano.encrypt(secret, longPassword);
+      const decryptedText = cardano.decrypt(encryptedText, longPassword);
+      // Assert: Verify that the decrypted text matches the original secret
+      expect(decryptedText).toBe(secret);
+    });
+
+    it('Should handle case where password is exactly 32 bytes', () => {
+      const exact32BytesPassword = 'a'.repeat(32); // 32 bytes password
+      const encryptedText = cardano.encrypt(secret, exact32BytesPassword);
+      const decryptedText = cardano.decrypt(
+        encryptedText,
+        exact32BytesPassword,
+      );
+      expect(decryptedText).toBe(secret);
     });
   });
 
