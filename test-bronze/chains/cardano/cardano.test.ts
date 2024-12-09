@@ -540,4 +540,84 @@ describe('Cardano', () => {
       expect(result).toBe('30.00');
     });
   });
+  describe('loadAssets', () => {
+    it('Should be defined', () => {
+      expect(cardano['loadAssets']).toBeDefined();
+    });
+    it('Should load assets and update _assetMap on cardano class', async () => {
+      // Arrange
+      jest.spyOn(utils, 'getAssetsFromPools').mockReturnValue({});
+      // Act
+      await cardano['loadAssets']();
+      // Assert
+      expect(cardano['_assetMap']).toEqual({});
+      expect(utils.getAssetsFromPools).toHaveBeenCalled();
+    });
+  });
+  describe('loadPools', () => {
+    it('Should be defined', () => {
+      expect(cardano['loadPools']).toBeDefined();
+    });
+    it('Should load pools and update _splashPools on cardano class', async () => {
+      // Arrange
+      jest.spyOn(utils, 'getSplashPools').mockResolvedValue({});
+      // Act
+      await cardano['loadPools']();
+      // Assert
+      expect(cardano['_splashPools']).toEqual({});
+      expect(utils.getSplashPools).toHaveBeenCalledWith(cardano['_dex']);
+    });
+  });
+  describe('validateTokens', () => {
+    it('Should be defined', () => {
+      expect(cardano['validateTokens']).toBeDefined();
+    });
+    it('Should throw new Error when baseCardanoToken is undefined', () => {
+      // Arrange
+      jest.spyOn(cardano, 'findToken').mockReturnValueOnce(undefined);
+      jest
+        .spyOn(cardano, 'findToken')
+        .mockReturnValueOnce('someValidCardanoToken' as any);
+      // Assert
+      expect(() => {
+        cardano['validateTokens']('baseToken', 'quoteToken');
+      }).toThrow('The BASETOKEN token is not supported by splash dex!');
+      expect(cardano['findToken']).toHaveBeenCalledTimes(2);
+      expect(cardano['findToken']).toHaveBeenCalledWith('BASETOKEN');
+      expect(cardano['findToken']).toHaveBeenCalledWith('QUOTETOKEN');
+    });
+    it('Should throw new Error when quoteCardanoToken is undefined', () => {
+      // Arrange
+      jest
+        .spyOn(cardano, 'findToken')
+        .mockReturnValueOnce('someValidCardanoToken' as any);
+      jest.spyOn(cardano, 'findToken').mockReturnValueOnce(undefined);
+      // Assert
+      expect(() => {
+        cardano['validateTokens']('baseToken', 'quoteToken');
+      }).toThrow('The QUOTETOKEN token is not supported by splash dex!');
+      expect(cardano['findToken']).toHaveBeenCalledTimes(2);
+      expect(cardano['findToken']).toHaveBeenCalledWith('BASETOKEN');
+      expect(cardano['findToken']).toHaveBeenCalledWith('QUOTETOKEN');
+    });
+    it('Should return baseCardanoToken and quoteCardanoToken if both exist', () => {
+      // Arrange
+      jest
+        .spyOn(cardano, 'findToken')
+        .mockReturnValueOnce('someValidCardanoToken' as any);
+      jest
+        .spyOn(cardano, 'findToken')
+        .mockReturnValueOnce('someOtherValidCardanoToken' as any);
+      // Act
+      const result = cardano['validateTokens']('baseToken', 'quoteToken');
+      // Assert
+      expect(result).toEqual([
+        'someValidCardanoToken',
+        'someOtherValidCardanoToken',
+      ]);
+      expect(cardano['findToken']).toHaveBeenCalledTimes(2);
+      expect(cardano['findToken']).toHaveBeenCalledWith('BASETOKEN');
+      expect(cardano['findToken']).toHaveBeenCalledWith('QUOTETOKEN');
+    });
+  });
 });
