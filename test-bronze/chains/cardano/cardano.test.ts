@@ -3,6 +3,7 @@ import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
 import { HotWallet, isOOROrder } from '@splashprotocol/sdk';
 import fse from 'fs-extra';
+import { BigNumber } from 'bignumber.js';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 jest.mock('@maestro-org/typescript-sdk', () => ({
@@ -45,7 +46,7 @@ describe('Cardano', () => {
       nodeURL: 'nodeURL',
       maxLRUCacheInstances: 100,
       utxosLimit: 100,
-      defaultSlippage: '0.1',
+      defaultSlippage: '17',
     },
   };
   const network = 'mainnet';
@@ -566,6 +567,47 @@ describe('Cardano', () => {
       // Assert
       expect(cardano['_splashPools']).toEqual({});
       expect(utils.getSplashPools).toHaveBeenCalledWith(cardano['_dex']);
+    });
+  });
+  describe('swap', () => {
+    it('Should be defined', () => {
+      expect(cardano.swap).toBeDefined();
+    });
+    it('Should throw new Error when Cardano instance is not ready', async () => {
+      // Arrange
+      cardano['_ready'] = false;
+      // Act & Assert
+      await expect(
+        cardano.swap('baseToken', 'quoteToken', BigNumber(1), true, '18'),
+      ).rejects.toThrow('Cardano instance not initialized');
+    });
+    it('Should throw new Error when amoumt is negative or zero', async () => {
+      // Arrange
+      cardano['_ready'] = true;
+      // Act & Assert
+      await expect(
+        cardano.swap('baseToken', 'quoteToken', BigNumber(-1), true, '18'),
+      ).rejects.toThrow('Invalid swap amount');
+      await expect(
+        cardano.swap('baseToken', 'quoteToken', BigNumber(0), true, '18'),
+      ).rejects.toThrow('Invalid swap amount');
+    });
+    it('Should throw error if getTokenMetadata fails to return metadata for baseMetadata', async () => {
+      // Arrange
+      cardano['_ready'] = true;
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        { policyId: 'basePolicy', name: 'baseToken' },
+        { policyId: 'quotePolicy', name: 'quoteToken' },
+      ]);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValue(undefined);
+      jest
+        .spyOn(utils, 'getTokenMetadata')
+        .mockResolvedValue('validTokenMetadata' as any);
+      await expect(
+        cardano.swap('baseToken', 'quoteToken', BigNumber(1), true, '18'),
+      ).rejects.toThrow(
+        "Couldn't find the tokens metadata, try a verified token",
+      );
     });
   });
   describe('validateTokens', () => {
