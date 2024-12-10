@@ -1,11 +1,8 @@
 # Set the base image
-FROM node:18.10.0
+FROM node:20.0.0
 
 # WORKDIR /usr/src/app/
 WORKDIR /home/gateway
-
-# Copy files
-COPY . .
 
 # Dockerfile author / maintainer
 LABEL maintainer="Michael Feng <mike@hummingbot.org>"
@@ -24,8 +21,14 @@ ENV INSTALLATION_TYPE=docker
 # Create mount points
 RUN mkdir -p /home/gateway/conf /home/gateway/logs /home/gateway/db /home/gateway/certs
 
-# Install dependencies and compile
-RUN yarn install --frozen-lockfile
+# Copy files and Install dependencies
+COPY package.json ./
+COPY yarn.lock ./
+COPY vendor/ ./vendor
+RUN yarn install
+
+# compile
+COPY . .
 RUN yarn build
 
 # Expose port 15888 - note that docs port is 8080
