@@ -1,5 +1,5 @@
 /db
-/certs
+# /certs
 /conf
 /logs
 /gateway.level

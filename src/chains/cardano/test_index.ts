@@ -214,7 +214,8 @@ async function runTests() {
     });
     console.log("this sis the estimated: ",
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
-      await cardano.estimate('ADA', 'USDC', BigNumber(1), true, '5' as TradeSlippage),
+      // await cardano.estimate('ADA', 'rsERG', BigNumber(1), true, '5' as TradeSlippage),
+      await cardano.estimate('rsERG', 'ADA', BigNumber(1000), true, '5' as TradeSlippage),
       // await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
@@ -223,11 +224,11 @@ async function runTests() {
 
     // const result = await cardano.swap(
     //   'ADA',
-    //   'USDC',
-    //   BigNumber(1),
+    //   'rsERG',
+    //   BigNumber(5),
     //   true,
     //   '1',
-    //   "1"
+    //   "2"
     // );
 
     // // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");

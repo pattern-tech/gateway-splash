@@ -126,11 +126,15 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
+    // console.log(this._assetMap)
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({
-        ADA: this._assetMap['ADA'],
-        USDC: this._assetMap['USDC'],
-      }), // todo
+      Object.values(
+        this._assetMap,
+        //   {
+        //   ADA: this._assetMap['ADA'],
+        //   USDC: this._assetMap['RSERG'],
+        // }
+      ), // todo
       this._node,
     );
 
@@ -412,7 +416,9 @@ export class Cardano {
       // fetching the fresh metadata
       let tokenMetadata = await getTokenMetadata(
         cardanoToken.policyId,
-        cardanoToken.name,
+        cardanoToken.token.asset.nameBase16 != ''
+          ? cardanoToken.token.asset.nameBase16
+          : stringToHex(cardanoToken.name),
         this._node,
       );
 
@@ -564,6 +570,10 @@ export class Cardano {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
+
+    baseToken = baseToken.toUpperCase();
+    quoteToken = quoteToken.toUpperCase();
+
     let [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
       quoteToken,
@@ -571,12 +581,16 @@ export class Cardano {
     // fetching fresh token decimals
     let baseMetadata = await getTokenMetadata(
       baseCardanoToken.policyId,
-      baseCardanoToken.name,
+      baseCardanoToken.token.asset.nameBase16 != ''
+        ? baseCardanoToken.token.asset.nameBase16
+        : stringToHex(baseCardanoToken.name),
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
       quoteCardanoToken.policyId,
-      quoteCardanoToken.name,
+      quoteCardanoToken.token.asset.nameBase16 != ''
+        ? quoteCardanoToken.token.asset.nameBase16
+        : stringToHex(quoteCardanoToken.name),
       this._node,
     );
 
@@ -712,9 +726,10 @@ export class Cardano {
   ): [Currency, Currency] {
     const createToken = (cardanoToken: CardanoToken) =>
       cardanoToken.token.withAmount(
-        BigInt(this.toRaw(amount, cardanoToken.decimals)),
+        BigInt(
+          Math.trunc(parseFloat(this.toRaw(amount, cardanoToken.decimals))),
+        ),
       );
-
     const inputToken = createToken(baseCardanoToken);
     const outputToken = createToken(quoteCardanoToken);
 
@@ -816,8 +831,11 @@ export class Cardano {
         })
         .complete();
 
-      let orderFee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
-      
+      let orderFee = this.fromRaw(
+        BigNumber(tx.wasm.body().fee().toString()),
+        6,
+      );
+
       let minUTxoValue = BigNumber(
         (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
       );
@@ -857,20 +875,29 @@ export class Cardano {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
-
+    baseToken = baseToken.toUpperCase();
+    quoteToken = quoteToken.toUpperCase();
     let [realBaseToken, realQuoteToken] = this.validateTokens(
-      baseToken.toUpperCase(),
-      quoteToken.toUpperCase(),
+      baseToken,
+      quoteToken,
+    );
+    console.log(
+      realBaseToken.name.toUpperCase(),
+      realQuoteToken.name.toUpperCase(),
     );
 
     let baseMetadata = await getTokenMetadata(
       realBaseToken.policyId,
-      realBaseToken.name,
+      realBaseToken.token.asset.nameBase16 != ''
+        ? realBaseToken.token.asset.nameBase16
+        : stringToHex(realBaseToken.name),
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
       realQuoteToken.policyId,
-      realQuoteToken.name,
+      realQuoteToken.token.asset.nameBase16 != ''
+        ? realQuoteToken.token.asset.nameBase16
+        : stringToHex(realQuoteToken.name),
       this._node,
     );
 
@@ -1025,7 +1052,9 @@ export class Cardano {
       const temp_quote = sell ? quoteToken : baseToken;
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
-        temp_base.token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        temp_base.token.withAmount(
+          BigInt(Math.trunc(parseFloat(this.toRaw(amount, decimals)))),
+        ),
         temp_quote.token.asset,
       );
     }
@@ -1126,9 +1155,8 @@ export class Cardano {
       let inputToken = sell ? baseToken : quoteToken;
 
       const input = inputToken.token.withAmount(
-        BigInt(this.toRaw(amount, inputToken.decimals)),
+        BigInt(Math.trunc(parseFloat(this.toRaw(amount, inputToken.decimals)))),
       );
-
       return selectEstimatedPrice({
         orderBook,
         input,
