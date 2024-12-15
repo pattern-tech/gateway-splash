@@ -136,7 +136,7 @@ export async function getTokenMetadata(
     };
   }
   try {
-    console.log(`${policyId}${base16Name}`)
+
     return (
       await maestroClient.assets.assetInfo(`${policyId}${base16Name}`)
     ).data.token_registry_metadata;

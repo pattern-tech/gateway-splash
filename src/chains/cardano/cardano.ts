@@ -126,7 +126,6 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
-    // console.log(this._assetMap)
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
       Object.values(
         this._assetMap,
@@ -880,10 +879,6 @@ export class Cardano {
     let [realBaseToken, realQuoteToken] = this.validateTokens(
       baseToken,
       quoteToken,
-    );
-    console.log(
-      realBaseToken.name.toUpperCase(),
-      realQuoteToken.name.toUpperCase(),
     );
 
     let baseMetadata = await getTokenMetadata(
