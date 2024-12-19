@@ -8,11 +8,11 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-import {
-  HttpException,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../services/error-handler';
+// import {
+//   HttpException,
+//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+// } from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
@@ -129,11 +129,7 @@ export class Cardano {
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
       Object.values(
         this._assetMap,
-        //   {
-        //   ADA: this._assetMap['ADA'],
-        //   USDC: this._assetMap['RSERG'],
-        // }
-      ), // todo
+      ),
       this._node,
     );
 
@@ -559,6 +555,13 @@ export class Cardano {
     priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
+
+    priceLimit = "1";
+
+    if (priceLimit) {
+      console.log("")
+    }
+
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
     }
@@ -636,20 +639,20 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
-    if (
-      (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
-      (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
-    ) {
-      console.error('Swap price exceeded limit price.');
-      throw new HttpException(
-        500,
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-          BigNumber(price).toFixed(decimals),
-          BigNumber(priceLimit).toFixed(outputDecimals),
-        ),
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-      );
-    }
+    // if (
+    //   (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
+    //   (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
+    // ) {
+    //   console.error('Swap price exceeded limit price.');
+    //   throw new HttpException(
+    //     500,
+    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+    //       BigNumber(price).toFixed(decimals),
+    //       BigNumber(priceLimit).toFixed(outputDecimals),
+    //     ),
+    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+    //   );
+    // }
 
     const swapTx = await this.createSwapTransaction(
       inputToken,
