@@ -1,9 +1,9 @@
 import { SplashConfig } from './splash.config';
 import { Cardano } from '../../chains/cardano/cardano';
-import {CardanoToken} from '../../chains/cardano/interfaces/cardano.interface';
-import {BigNumber} from "bignumber.js";
-import {PriceRequest, TradeRequest} from "../../amm/amm.requests";
-import {TradeSlippage} from "../../chains/cardano/types/node.types";
+import { CardanoToken } from '../../chains/cardano/interfaces/cardano.interface';
+import { BigNumber } from 'bignumber.js';
+import { PriceRequest, TradeRequest } from '../../amm/amm.requests';
+import { TradeSlippage } from '../../chains/cardano/types/node.types';
 
 export class Splash {
   private static _instances: { [name: string]: Splash };
@@ -12,19 +12,23 @@ export class Splash {
   private tokenList: Record<string, CardanoToken> = {};
   private _ready: boolean = false;
 
-  private constructor(network: string) {
+  private constructor(network: string, maestro_api_key: string) {
     const config = SplashConfig.config;
 
-    this.cardano = Cardano.getInstance(network);
+    this.cardano = Cardano.getInstance(network, maestro_api_key);
     this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
-  public static getInstance(chain: string, network: string): Splash {
+  public static getInstance(
+    chain: string,
+    network: string,
+    maestro_api_key: string,
+  ): Splash {
     if (Splash._instances === undefined) {
       Splash._instances = {};
     }
     if (!(chain + network in Splash._instances)) {
-      Splash._instances[chain + network] = new Splash(network);
+      Splash._instances[chain + network] = new Splash(network, maestro_api_key);
     }
 
     return Splash._instances[chain + network];

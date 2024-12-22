@@ -84,6 +84,7 @@ export class Cardano {
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
+    maestro_api_key: string,
   ) {
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
@@ -93,10 +94,10 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL),
+      getMaestroConfig(new_network, config.network.nodeURL, maestro_api_key),
     );
 
-    this._dex = getSplashInstance(new_network);
+    this._dex = getSplashInstance(new_network, maestro_api_key);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -143,7 +144,11 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(network: string, name?: string): Cardano {
+  public static getInstance(
+    network: string,
+    maestro: string,
+    name?: string,
+  ): Cardano {
     try {
       const instanceName = name || network;
 
@@ -166,7 +171,13 @@ export class Cardano {
 
       Cardano._instances.set(
         instanceName,
-        new Cardano(network as MaestroSupportedNetworks, config, 1, {}),
+        new Cardano(
+          network as MaestroSupportedNetworks,
+          config,
+          1,
+          {},
+          maestro,
+        ),
       );
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
