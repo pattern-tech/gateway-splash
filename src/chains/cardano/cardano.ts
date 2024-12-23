@@ -74,6 +74,7 @@ export class Cardano {
   public controller: CardanoController;
   private utxosLimit: number;
   private defaultSlippage: TradeSlippage;
+  private maestroApiKey: string | undefined;
 
   /**
    * Synchronously Creates an instance of Cardano.
@@ -84,8 +85,9 @@ export class Cardano {
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
-    maestro_api_key: string,
+    maestroApiKey?: string | undefined,
   ) {
+    this.maestroApiKey = maestroApiKey;
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
     if (network === 'mainnet') {
@@ -94,10 +96,10 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL, maestro_api_key),
+      getMaestroConfig(new_network, config.network.nodeURL, this.maestroApiKey),
     );
 
-    this._dex = getSplashInstance(new_network, maestro_api_key);
+    this._dex = getSplashInstance(new_network, this.maestroApiKey);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -128,12 +130,9 @@ export class Cardano {
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values(
-        this._assetMap,
-      ),
+      Object.values(this._assetMap),
       this._node,
     );
-
     return;
   }
 
@@ -146,7 +145,7 @@ export class Cardano {
    */
   public static getInstance(
     network: string,
-    maestro: string,
+    maestroApiKey: string | undefined,
     name?: string,
   ): Cardano {
     try {
@@ -161,10 +160,13 @@ export class Cardano {
       }
 
       // Try to get existing instance
-      let cardanoInstance = Cardano._instances.get(instanceName);
+      const cardanoInstance = Cardano._instances.get(instanceName);
 
-      if (cardanoInstance) {
+      if (cardanoInstance && cardanoInstance['maestroApiKey']) {
         return cardanoInstance;
+      }
+      if (maestroApiKey == undefined) {
+        throw new Error('Please connect to the gateway first.');
       }
 
       const config = getCardanoConfig(network);
@@ -176,7 +178,7 @@ export class Cardano {
           config,
           1,
           {},
-          maestro,
+          maestroApiKey,
         ),
       );
 

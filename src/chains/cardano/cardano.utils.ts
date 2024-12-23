@@ -25,10 +25,10 @@ dotenv.config({ path: '../../../.env' });
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
   url: string,
-  maestro_api_key: string,
+  maestroApiKey: string | undefined,
 ): MaestroConfig {
   return new MaestroConfig({
-    apiKey: maestro_api_key,
+    apiKey: maestroApiKey,
     baseUrl: url,
     network: network,
   });
@@ -36,13 +36,13 @@ export function getMaestroConfig(
 
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
-  maestro_api_key: string,
+  maestroApiKey: string | any,
 ): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
   return SplashBuilder(
     SplashApi({ network: splashNetwork }),
-    MaestroExplorer.new(splashNetwork, maestro_api_key),
+    MaestroExplorer.new(splashNetwork, maestroApiKey),
   );
 }
 
@@ -211,11 +211,11 @@ export async function getTokenMetadataWithBackoff(
           url: '',
         });
       } else {
-        console.error(`Error fetching metadata for ${token.name}: ${error}`);
-        console.log('trying again in 1 second ...');
-        await delay(1000);
-        return fetchMetadata(token);
+        throw new Error(
+          'Error fetching tokens. Check your network or Maestro API key',
+        );
       }
+      return;
     }
   };
 

@@ -47,8 +47,8 @@ import {PancakeswapLP} from '../connectors/pancakeswap/pancakeswap.lp';
 import {XRPLCLOB} from '../connectors/xrpl/xrpl';
 import {Carbonamm} from '../connectors/carbon/carbonAMM';
 import {Balancer} from '../connectors/balancer/balancer';
-import {Cardano} from "../chains/cardano/cardano";
-import {Splash} from "../connectors/splash/splash";
+import {Cardano} from '../chains/cardano/cardano';
+import {Splash} from '../connectors/splash/splash';
 
 export type ChainUnion =
   | Algorand
@@ -96,12 +96,12 @@ export class UnsupportedChainException extends Error {
     this.stack = (<any>new Error()).stack;
   }
 }
-
 export async function getInitializedChain<T>(
   chain: string,
   network: string,
+  connectorApiKey?: string,
 ): Promise<Chain<T>> {
-  const chainInstance = await getChainInstance(chain, network);
+  const chainInstance = await getChainInstance(chain, network, connectorApiKey);
 
   if (chainInstance === undefined) {
     throw new UnsupportedChainException(`unsupported chain ${chain}`);
@@ -117,6 +117,7 @@ export async function getInitializedChain<T>(
 export async function getChainInstance(
   chain: string,
   network: string,
+  connectorApiKey?: string,
 ): Promise<ChainUnion | undefined> {
   let connection: ChainUnion | undefined;
 
@@ -153,7 +154,7 @@ export async function getChainInstance(
   } else if (chain === 'telos') {
     connection = Telos.getInstance(network);
   } else if (chain === 'cardano') {
-    connection = Cardano.getInstance(network);
+    connection = Cardano.getInstance(network, connectorApiKey);
   } else {
     connection = undefined;
   }
@@ -201,6 +202,7 @@ export async function getConnector<T>(
   network: string,
   connector: string | undefined,
   address?: string,
+  connectorApiKey?: string,
 ): Promise<Connector<T>> {
   let connectorInstance: ConnectorUnion;
 
@@ -250,7 +252,7 @@ export async function getConnector<T>(
     connectorInstance = Plenty.getInstance(network);
   }
   else if (chain === 'cardano' && connector === 'splash') {
-      connectorInstance = Splash.getInstance(chain, network);
+    connectorInstance = Splash.getInstance(chain, network, connectorApiKey);
   } else {
     throw new Error('unsupported chain or connector');
   }

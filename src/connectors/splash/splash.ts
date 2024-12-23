@@ -22,13 +22,16 @@ export class Splash {
   public static getInstance(
     chain: string,
     network: string,
-    maestro_api_key: string,
+    maestro_api_key: string | undefined,
   ): Splash {
     if (Splash._instances === undefined) {
       Splash._instances = {};
     }
     if (!(chain + network in Splash._instances)) {
-      Splash._instances[chain + network] = new Splash(network, maestro_api_key);
+      Splash._instances[chain + network] = new Splash(
+        network,
+        maestro_api_key as any,
+      );
     }
 
     return Splash._instances[chain + network];
