@@ -500,13 +500,13 @@ export class Cardano {
         const tokenDecimals = isAda
           ? 6
           : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
-        if (assets[tokenName] === undefined) {
-          assets[tokenName] = BigNumber(0);
+        if (assets[tokenName.toUpperCase()] === undefined) {
+          assets[tokenName.toUpperCase()] = BigNumber(0);
         }
 
-        assets[tokenName] = BigNumber(
+        assets[tokenName.toUpperCase()] = BigNumber(
           this.fromRaw(
-            BigNumber(this.toRaw(assets[tokenName], tokenDecimals)).plus(
+            BigNumber(this.toRaw(assets[tokenName.toUpperCase()], tokenDecimals)).plus(
               BigNumber(amount),
             ),
             tokenDecimals,
