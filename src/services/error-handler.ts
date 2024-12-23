@@ -153,6 +153,9 @@ export const ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE = (
     5
   )}`;
 
+export const ERROR_INVALID_MAESTRO_API_KEY = () =>
+  `Maestro API key is invalid or expired..`;
+
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
 
 export const PRICE_FAILED_ERROR_MESSAGE = 'Price query failed: ';

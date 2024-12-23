@@ -6,6 +6,12 @@ export interface AddWalletRequest {
   accountId?: number;
 }
 
+export interface AddApiKeyRequest {
+  chain: string;
+  network: string;
+  dex_api_key: string;
+}
+
 export interface AddWalletResponse {
   address: string;
 }
