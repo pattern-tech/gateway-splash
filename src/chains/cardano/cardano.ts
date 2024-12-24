@@ -556,8 +556,7 @@ export class Cardano {
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
 
-    priceLimit = "1";
-
+    // don't touch
     if (priceLimit) {
       console.log("")
     }
@@ -639,21 +638,6 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
-    // if (
-    //   (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
-    //   (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
-    // ) {
-    //   console.error('Swap price exceeded limit price.');
-    //   throw new HttpException(
-    //     500,
-    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-    //       BigNumber(price).toFixed(decimals),
-    //       BigNumber(priceLimit).toFixed(outputDecimals),
-    //     ),
-    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-    //   );
-    // }
-
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
@@ -670,7 +654,7 @@ export class Cardano {
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
 
-    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
+    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout); // if using, use with delay, generally this line is not needed
 
     return this.createTradeResponse(
       sell ? baseCardanoToken : quoteCardanoToken,
