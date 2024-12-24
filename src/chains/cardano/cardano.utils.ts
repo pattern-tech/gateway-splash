@@ -211,11 +211,11 @@ export async function getTokenMetadataWithBackoff(
           url: '',
         });
       } else {
-        throw new Error(
-          'Error fetching tokens. Check your network or Maestro API key',
-        );
+        console.error(`Error fetching metadata for ${token.name}: ${error}`);
+        console.log('trying again in 1 second ...');
+        await delay(1000);
+        return fetchMetadata(token);
       }
-      return;
     }
   };
 

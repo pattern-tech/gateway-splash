@@ -55,6 +55,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import axios from 'axios';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -74,7 +75,7 @@ export class Cardano {
   public controller: CardanoController;
   private utxosLimit: number;
   private defaultSlippage: TradeSlippage;
-  private maestroApiKey: string | undefined;
+  private static maestroApiKey: string | undefined;
 
   /**
    * Synchronously Creates an instance of Cardano.
@@ -87,7 +88,7 @@ export class Cardano {
     splashPools: Record<string, SplashPool[]>,
     maestroApiKey?: string | undefined,
   ) {
-    this.maestroApiKey = maestroApiKey;
+    Cardano.maestroApiKey = maestroApiKey;
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
     if (network === 'mainnet') {
@@ -96,10 +97,14 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL, this.maestroApiKey),
+      getMaestroConfig(
+        new_network,
+        config.network.nodeURL,
+        Cardano.maestroApiKey,
+      ),
     );
 
-    this._dex = getSplashInstance(new_network, this.maestroApiKey);
+    this._dex = getSplashInstance(new_network, Cardano.maestroApiKey);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -137,6 +142,29 @@ export class Cardano {
   }
 
   /**
+   * Checks the validation of the given Maestro API key
+   * @returns {Promise<void>}
+   */
+  static async APIKeyValidation(
+    maestroApiKey: string | undefined,
+  ): Promise<void> {
+    if (Cardano.maestroApiKey != undefined || maestroApiKey != undefined) {
+      try {
+        const url = 'https://mainnet.gomaestro-api.org/v1/chain-tip';
+        await axios.get(url, {
+          headers: { 'api-key': maestroApiKey },
+        });
+        if (maestroApiKey != '' || maestroApiKey != undefined) {
+          Cardano.maestroApiKey = maestroApiKey;
+        }
+      } catch {
+        if (Cardano.maestroApiKey == '' || Cardano.maestroApiKey == undefined) {
+          throw new Error('API key is invalid or expired.');
+        }
+      }
+    }
+  }
+  /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
    * @param name - The name of the network
@@ -162,12 +190,13 @@ export class Cardano {
       // Try to get existing instance
       const cardanoInstance = Cardano._instances.get(instanceName);
 
-      if (cardanoInstance && cardanoInstance['maestroApiKey']) {
+      if (cardanoInstance) {
         return cardanoInstance;
       }
-      if (maestroApiKey == undefined) {
+      if (maestroApiKey == '' || maestroApiKey == undefined) {
         throw new Error('Please connect to the gateway first.');
       }
+
 
       const config = getCardanoConfig(network);
 

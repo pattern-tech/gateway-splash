@@ -154,6 +154,7 @@ export async function getChainInstance(
   } else if (chain === 'telos') {
     connection = Telos.getInstance(network);
   } else if (chain === 'cardano') {
+    await Cardano.APIKeyValidation(connectorApiKey);
     connection = Cardano.getInstance(network, connectorApiKey);
   } else {
     connection = undefined;
@@ -250,8 +251,7 @@ export async function getConnector<T>(
     connectorInstance = Tinyman.getInstance(network);
   } else if (connector === 'plenty') {
     connectorInstance = Plenty.getInstance(network);
-  }
-  else if (chain === 'cardano' && connector === 'splash') {
+  } else if (chain === 'cardano' && connector === 'splash') {
     connectorInstance = Splash.getInstance(chain, network, connectorApiKey);
   } else {
     throw new Error('unsupported chain or connector');
