@@ -8,11 +8,6 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-// import {
-//   HttpException,
-//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-// } from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
