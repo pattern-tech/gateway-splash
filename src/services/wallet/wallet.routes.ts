@@ -8,6 +8,7 @@ import {
   removeWallet,
   getWallets,
   signMessage,
+  addApiKey,
 } from './wallet.controllers';
 
 import {
@@ -17,6 +18,7 @@ import {
   GetWalletResponse,
   WalletSignRequest,
   WalletSignResponse,
+  AddApiKeyRequest,
 } from './wallet.requests';
 
 import {
@@ -47,6 +49,18 @@ export namespace WalletRoutes {
         res.status(200).json(await addWallet(req.body));
       }
     )
+  );
+
+  router.post(
+    '/apikey',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, AddApiKeyRequest>,
+        res: Response<void, {}>,
+      ) => {
+        res.status(200).json(await addApiKey(req.body));
+      },
+    ),
   );
 
   router.delete(

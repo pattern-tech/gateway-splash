@@ -10,7 +10,6 @@ import {
   SplashBuilder,
   SplashApi,
   MaestroExplorer,
-  stringToHex,
 } from '@splashprotocol/sdk';
 import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
@@ -26,9 +25,10 @@ dotenv.config({ path: '../../../.env' });
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
   url: string,
+  maestroApiKey: string | undefined,
 ): MaestroConfig {
   return new MaestroConfig({
-    apiKey: String(process.env.MAESTRO_API_KEY),
+    apiKey: maestroApiKey,
     baseUrl: url,
     network: network,
   });
@@ -36,12 +36,13 @@ export function getMaestroConfig(
 
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
+  maestroApiKey: string | any,
 ): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
   return SplashBuilder(
     SplashApi({ network: splashNetwork }),
-    MaestroExplorer.new(splashNetwork, String(process.env.MAESTRO_API_KEY)),
+    MaestroExplorer.new(splashNetwork, maestroApiKey),
   );
 }
 
@@ -93,6 +94,7 @@ export function getAssetsFromPools(
   };
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
+
       if (
         pool.x.asset.name !== '' &&
         pool.x.asset.name.toUpperCase() !== 'ADA'
@@ -122,10 +124,10 @@ export function getNftBase16Names(
 
 export async function getTokenMetadata(
   policyId: string,
-  name: string,
+  base16Name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
-  if (['LOVELACE', 'ADA'].includes(name.toUpperCase())) {
+  if ("414441" === base16Name) {
     return {
       decimals: 6,
       description: '',
@@ -136,14 +138,16 @@ export async function getTokenMetadata(
     };
   }
   try {
+
     return (
-      await maestroClient.assets.assetInfo(`${policyId}${stringToHex(name)}`)
+      await maestroClient.assets.assetInfo(`${policyId}${base16Name}`)
     ).data.token_registry_metadata;
   } catch (error) {
     // 429
     // 403
     return undefined;
   }
+
 }
 
 /**
@@ -166,6 +170,7 @@ export async function getTokenMetadataWithBackoff(
     new Promise((resolve) => setTimeout(resolve, ms));
 
   const fetchMetadata = async (token: CardanoToken): Promise<void> => {
+
     if (
       metadata.has(token.name.toUpperCase()) ||
       ['ADA', 'LOVELACE'].includes(token.name.toUpperCase())
@@ -177,12 +182,14 @@ export async function getTokenMetadataWithBackoff(
       const assetInfo = await maestroClient.assets.assetInfo(
         `${token.policyId}${token.token.asset.nameBase16}`,
       );
+
+
       const tokenMetadata = assetInfo.data.token_registry_metadata || {
         decimals: 0,
         description: '',
         logo: '',
-        name: token.name.toUpperCase(),
-        ticker: token.name.toUpperCase(),
+        name: token.name,
+        ticker: token.name,
         url: '',
       };
 

@@ -31,7 +31,7 @@ export interface CardanoToken {
   decimals: number;
   name: string;
   symbol: string;
-  nameBase16?: string;
+  nameBase16: string;
   splashSupport?: boolean;
 }
 

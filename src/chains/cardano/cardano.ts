@@ -8,11 +8,11 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-import {
-  HttpException,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../services/error-handler';
+// import {
+//   HttpException,
+//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+// } from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
@@ -55,6 +55,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import axios from 'axios';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -74,6 +75,7 @@ export class Cardano {
   public controller: CardanoController;
   private utxosLimit: number;
   private defaultSlippage: TradeSlippage;
+  private static maestroApiKey: string | undefined;
 
   /**
    * Synchronously Creates an instance of Cardano.
@@ -84,7 +86,9 @@ export class Cardano {
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
+    maestroApiKey?: string | undefined,
   ) {
+    Cardano.maestroApiKey = maestroApiKey;
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
     if (network === 'mainnet') {
@@ -93,10 +97,14 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL),
+      getMaestroConfig(
+        new_network,
+        config.network.nodeURL,
+        Cardano.maestroApiKey,
+      ),
     );
 
-    this._dex = getSplashInstance(new_network);
+    this._dex = getSplashInstance(new_network, Cardano.maestroApiKey);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -127,16 +135,35 @@ export class Cardano {
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values({
-        ADA: this._assetMap['ADA'],
-        USDC: this._assetMap['USDC'],
-      }), // todo
+      Object.values(this._assetMap),
       this._node,
     );
-
     return;
   }
 
+  /**
+   * Checks the validation of the given Maestro API key
+   * @returns {Promise<void>}
+   */
+  static async APIKeyValidation(
+    maestroApiKey: string | undefined,
+  ): Promise<void> {
+    if (Cardano.maestroApiKey != undefined || maestroApiKey != undefined) {
+      try {
+        const url = 'https://mainnet.gomaestro-api.org/v1/chain-tip';
+        await axios.get(url, {
+          headers: { 'api-key': maestroApiKey },
+        });
+        if (maestroApiKey != '' || maestroApiKey != undefined) {
+          Cardano.maestroApiKey = maestroApiKey;
+        }
+      } catch {
+        if (Cardano.maestroApiKey == '' || Cardano.maestroApiKey == undefined) {
+          throw new Error('API key is invalid or expired.');
+        }
+      }
+    }
+  }
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -144,7 +171,11 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(network: string, name?: string): Cardano {
+  public static getInstance(
+    network: string,
+    maestroApiKey: string | undefined,
+    name?: string,
+  ): Cardano {
     try {
       const instanceName = name || network;
 
@@ -157,17 +188,27 @@ export class Cardano {
       }
 
       // Try to get existing instance
-      let cardanoInstance = Cardano._instances.get(instanceName);
+      const cardanoInstance = Cardano._instances.get(instanceName);
 
       if (cardanoInstance) {
         return cardanoInstance;
       }
+      if (maestroApiKey == '' || maestroApiKey == undefined) {
+        throw new Error('Please connect to the gateway first.');
+      }
+
 
       const config = getCardanoConfig(network);
 
       Cardano._instances.set(
         instanceName,
-        new Cardano(network as MaestroSupportedNetworks, config, 1, {}),
+        new Cardano(
+          network as MaestroSupportedNetworks,
+          config,
+          1,
+          {},
+          maestroApiKey,
+        ),
       );
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
@@ -412,7 +453,9 @@ export class Cardano {
       // fetching the fresh metadata
       let tokenMetadata = await getTokenMetadata(
         cardanoToken.policyId,
-        cardanoToken.name,
+        cardanoToken.token.asset.nameBase16 != ''
+          ? cardanoToken.token.asset.nameBase16
+          : stringToHex(cardanoToken.name),
         this._node,
       );
 
@@ -554,6 +597,13 @@ export class Cardano {
     priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
+
+    priceLimit = "1";
+
+    if (priceLimit) {
+      console.log("")
+    }
+
     if (!this._ready) {
       throw new Error('Cardano instance not initialized');
     }
@@ -564,6 +614,10 @@ export class Cardano {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
+
+    baseToken = baseToken.toUpperCase();
+    quoteToken = quoteToken.toUpperCase();
+
     let [baseCardanoToken, quoteCardanoToken] = this.validateTokens(
       baseToken,
       quoteToken,
@@ -571,12 +625,16 @@ export class Cardano {
     // fetching fresh token decimals
     let baseMetadata = await getTokenMetadata(
       baseCardanoToken.policyId,
-      baseCardanoToken.name,
+      baseCardanoToken.token.asset.nameBase16 != ''
+        ? baseCardanoToken.token.asset.nameBase16
+        : stringToHex(baseCardanoToken.name),
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
       quoteCardanoToken.policyId,
-      quoteCardanoToken.name,
+      quoteCardanoToken.token.asset.nameBase16 != ''
+        ? quoteCardanoToken.token.asset.nameBase16
+        : stringToHex(quoteCardanoToken.name),
       this._node,
     );
 
@@ -623,20 +681,20 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
-    if (
-      (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
-      (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
-    ) {
-      console.error('Swap price exceeded limit price.');
-      throw new HttpException(
-        500,
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-          BigNumber(price).toFixed(decimals),
-          BigNumber(priceLimit).toFixed(outputDecimals),
-        ),
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-      );
-    }
+    // if (
+    //   (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
+    //   (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
+    // ) {
+    //   console.error('Swap price exceeded limit price.');
+    //   throw new HttpException(
+    //     500,
+    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+    //       BigNumber(price).toFixed(decimals),
+    //       BigNumber(priceLimit).toFixed(outputDecimals),
+    //     ),
+    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+    //   );
+    // }
 
     const swapTx = await this.createSwapTransaction(
       inputToken,
@@ -712,9 +770,10 @@ export class Cardano {
   ): [Currency, Currency] {
     const createToken = (cardanoToken: CardanoToken) =>
       cardanoToken.token.withAmount(
-        BigInt(this.toRaw(amount, cardanoToken.decimals)),
+        BigInt(
+          Math.trunc(parseFloat(this.toRaw(amount, cardanoToken.decimals))),
+        ),
       );
-
     const inputToken = createToken(baseCardanoToken);
     const outputToken = createToken(quoteCardanoToken);
 
@@ -816,8 +875,11 @@ export class Cardano {
         })
         .complete();
 
-      let orderFee = this.fromRaw(BigNumber(tx.wasm.body().fee().toString()), 6);
-      
+      let orderFee = this.fromRaw(
+        BigNumber(tx.wasm.body().fee().toString()),
+        6,
+      );
+
       let minUTxoValue = BigNumber(
         (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
       );
@@ -857,20 +919,25 @@ export class Cardano {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
-
+    baseToken = baseToken.toUpperCase();
+    quoteToken = quoteToken.toUpperCase();
     let [realBaseToken, realQuoteToken] = this.validateTokens(
-      baseToken.toUpperCase(),
-      quoteToken.toUpperCase(),
+      baseToken,
+      quoteToken,
     );
 
     let baseMetadata = await getTokenMetadata(
       realBaseToken.policyId,
-      realBaseToken.name,
+      realBaseToken.token.asset.nameBase16 != ''
+        ? realBaseToken.token.asset.nameBase16
+        : stringToHex(realBaseToken.name),
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
       realQuoteToken.policyId,
-      realQuoteToken.name,
+      realQuoteToken.token.asset.nameBase16 != ''
+        ? realQuoteToken.token.asset.nameBase16
+        : stringToHex(realQuoteToken.name),
       this._node,
     );
 
@@ -1025,7 +1092,9 @@ export class Cardano {
       const temp_quote = sell ? quoteToken : baseToken;
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
-        temp_base.token.withAmount(BigInt(this.toRaw(amount, decimals))),
+        temp_base.token.withAmount(
+          BigInt(Math.trunc(parseFloat(this.toRaw(amount, decimals)))),
+        ),
         temp_quote.token.asset,
       );
     }
@@ -1126,9 +1195,8 @@ export class Cardano {
       let inputToken = sell ? baseToken : quoteToken;
 
       const input = inputToken.token.withAmount(
-        BigInt(this.toRaw(amount, inputToken.decimals)),
+        BigInt(Math.trunc(parseFloat(this.toRaw(amount, inputToken.decimals)))),
       );
-
       return selectEstimatedPrice({
         orderBook,
         input,
