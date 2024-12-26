@@ -31,9 +31,10 @@ dotenv.config({ path: '../../../.env' });
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
   url: string,
+  maestroApiKey: string | undefined,
 ): MaestroConfig {
   return new MaestroConfig({
-    apiKey: String(process.env.MAESTRO_API_KEY),
+    apiKey: maestroApiKey,
     baseUrl: url,
     network: network,
   });
@@ -46,12 +47,13 @@ export function getMaestroConfig(
  */
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
+  maestroApiKey: string | any,
 ): SplashInstance {
   let splashNetwork: Network = network.toLowerCase() as Network;
 
   return SplashBuilder(
     SplashApi({ network: splashNetwork }),
-    MaestroExplorer.new(splashNetwork, String(process.env.MAESTRO_API_KEY)),
+    MaestroExplorer.new(splashNetwork, maestroApiKey),
   );
 }
 
@@ -153,7 +155,7 @@ export async function getTokenMetadata(
   base16Name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
-  if ('414441' === base16Name) {
+  if ("414441" === base16Name) {
     return {
       decimals: 6,
       description: '',
@@ -171,6 +173,7 @@ export async function getTokenMetadata(
     // 403
     return undefined;
   }
+
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   GetWalletResponse,
   WalletSignRequest,
   WalletSignResponse,
+  AddApiKeyRequest,
 } from './wallet.requests';
 
 import { ConfigManagerCertPassphrase } from '../config-manager-cert-passphrase';
@@ -24,6 +25,7 @@ import {
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
+  ERROR_INVALID_MAESTRO_API_KEY,
 } from '../error-handler';
 import { EthereumBase } from '../../chains/ethereum/ethereum-base';
 import { Near } from '../../chains/near/near';
@@ -49,6 +51,38 @@ export async function mkdirIfDoesNotExist(path: string): Promise<void> {
   const exists = await fse.pathExists(path);
   if (!exists) {
     await fse.mkdir(path, { recursive: true });
+  }
+}
+
+export async function addApiKey(req: AddApiKeyRequest): Promise<void> {
+  let connection: ChainUnion;
+
+  try {
+    connection = await getInitializedChain<ChainUnion>(
+      req.chain,
+      req.network,
+      req.dex_api_key,
+    );
+  } catch (e) {
+    if (e instanceof UnsupportedChainException) {
+      throw new HttpException(
+        500,
+        UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
+        UNKNOWN_CHAIN_ERROR_CODE,
+      );
+    }
+    throw e;
+  }
+  if (connection instanceof Cardano) {
+    try {
+      Cardano.getInstance(req.network, req.dex_api_key);
+    } catch {
+      throw new HttpException(
+        500,
+        ERROR_INVALID_MAESTRO_API_KEY(),
+        UNKNOWN_CHAIN_ERROR_CODE,
+      );
+    }
   }
 }
 

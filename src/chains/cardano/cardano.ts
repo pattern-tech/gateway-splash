@@ -50,6 +50,7 @@ import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import axios from 'axios';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -69,6 +70,7 @@ export class Cardano {
   public controller: CardanoController;
   private utxosLimit: number;
   private defaultSlippage: TradeSlippage;
+  private static maestroApiKey: string | undefined;
 
   /**
    * Synchronously Creates an instance of Cardano.
@@ -79,7 +81,9 @@ export class Cardano {
     config: CardanoConfig,
     minFee: number, //manual
     splashPools: Record<string, SplashPool[]>,
+    maestroApiKey?: string | undefined,
   ) {
+    Cardano.maestroApiKey = maestroApiKey;
     let new_network: MaestroSupportedNetworks;
     network = network.toLowerCase();
     if (network === 'mainnet') {
@@ -88,10 +92,14 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL),
+      getMaestroConfig(
+        new_network,
+        config.network.nodeURL,
+        Cardano.maestroApiKey,
+      ),
     );
 
-    this._dex = getSplashInstance(new_network);
+    this._dex = getSplashInstance(new_network, Cardano.maestroApiKey);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -122,15 +130,35 @@ export class Cardano {
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
     Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values(
-        this._assetMap,
-      ),
+      Object.values(this._assetMap),
       this._node,
     );
-
     return;
   }
 
+  /**
+   * Checks the validation of the given Maestro API key
+   * @returns {Promise<void>}
+   */
+  static async APIKeyValidation(
+    maestroApiKey: string | undefined,
+  ): Promise<void> {
+    if (Cardano.maestroApiKey != undefined || maestroApiKey != undefined) {
+      try {
+        const url = 'https://mainnet.gomaestro-api.org/v1/chain-tip';
+        await axios.get(url, {
+          headers: { 'api-key': maestroApiKey },
+        });
+        if (maestroApiKey != '' || maestroApiKey != undefined) {
+          Cardano.maestroApiKey = maestroApiKey;
+        }
+      } catch {
+        if (Cardano.maestroApiKey == '' || Cardano.maestroApiKey == undefined) {
+          throw new Error('API key is invalid or expired.');
+        }
+      }
+    }
+  }
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -138,7 +166,11 @@ export class Cardano {
    * @returns {Cardano}
    * @static
    */
-  public static getInstance(network: string, name?: string): Cardano {
+  public static getInstance(
+    network: string,
+    maestroApiKey: string | undefined,
+    name?: string,
+  ): Cardano {
     try {
       const instanceName = name || network;
 
@@ -151,17 +183,27 @@ export class Cardano {
       }
 
       // Try to get existing instance
-      let cardanoInstance = Cardano._instances.get(instanceName);
+      const cardanoInstance = Cardano._instances.get(instanceName);
 
       if (cardanoInstance) {
         return cardanoInstance;
       }
+      if (maestroApiKey == '' || maestroApiKey == undefined) {
+        throw new Error('Please connect to the gateway first.');
+      }
+
 
       const config = getCardanoConfig(network);
 
       Cardano._instances.set(
         instanceName,
-        new Cardano(network as MaestroSupportedNetworks, config, 1, {}),
+        new Cardano(
+          network as MaestroSupportedNetworks,
+          config,
+          1,
+          {},
+          maestroApiKey,
+        ),
       );
 
       let instance = Cardano._instances.get(instanceName) as Cardano;
