@@ -123,7 +123,7 @@ describe('Cardano', () => {
       // Arrange
       jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
       // Act
-      const cardanoInstance = Cardano.getInstance(network);
+      const cardanoInstance = Cardano.getInstance(network, 'api-key');
       expect(config.getCardanoConfig).toHaveBeenCalledWith(network);
       expect(cardanoInstance).toBeDefined();
     });
@@ -132,7 +132,7 @@ describe('Cardano', () => {
       // Arrange
       const cachedInstance = new Cardano(network, mockConfig, 1, {});
       // Act
-      const cardanoInstance = Cardano.getInstance(network);
+      const cardanoInstance = Cardano.getInstance(network, 'api-key');
       // Assert
       expect(JSON.stringify(cardanoInstance)).toBe(
         JSON.stringify(cachedInstance),
@@ -141,7 +141,7 @@ describe('Cardano', () => {
     it('should throw an error if creating new Cardano instance fails', () => {
       jest.spyOn(config, 'getCardanoConfig').mockReturnValue('junkData' as any);
 
-      expect(() => Cardano.getInstance('mockNetwork')).toThrow(
+      expect(() => Cardano.getInstance('mockNetwork', 'api-key')).toThrow(
         `Failed to create Cardano instance: TypeError: Cannot read properties of undefined (reading 'nodeURL')`,
       );
     });

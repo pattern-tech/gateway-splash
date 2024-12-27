@@ -18,7 +18,7 @@
     "copy-files": "copyfiles -a 'src/**/schema/*.json' 'src/templates/*.yml' 'src/templates/lists/*.json' 'test/services/data/**/*.*' dist",
     "test": "jest --verbose",
     "test:debug": "node --inspect node_modules/.bin/jest --watch --runInBand",
-    "test:unit": "NODE_OPTIONS=--max_old_space_size=10240 jest --runInBand --verbose ./test/",
+    "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --verbose ./test-bronze/chains/cardano",
     "test:cov": "NODE_OPTIONS=--max_old_space_size=10240 jest --runInBand --coverage ./test/",
     "test:scripts": "jest -i --verbose ./test-scripts/*.test.ts"
   },
