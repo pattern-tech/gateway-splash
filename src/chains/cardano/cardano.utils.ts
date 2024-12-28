@@ -22,6 +22,12 @@ import { enc } from 'crypto-js';
 
 dotenv.config({ path: '../../../.env' });
 
+/**
+ * Creates a maestro node config object
+ * @param {MaestroSupportedNetworks} network - The network name
+ * @param {string} url - The url of the maestro node
+ * @returns {MaestroConfig} Returns a maestro node config object
+ */
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
   url: string,
@@ -34,6 +40,11 @@ export function getMaestroConfig(
   });
 }
 
+/**
+ * Cerates a splash dex api handler object
+ * @param {MaestroSupportedNetworks} network - The name of the network
+ * @returns {SplashInstance} Returns a splash dex api handler object
+ */
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
   maestroApiKey: string | any,
@@ -46,6 +57,11 @@ export function getSplashInstance(
   );
 }
 
+/**
+ * Generates the supported tokens from the loaded pools of the splash dex 
+ * @param {Record<string, SplashPool[]>} splashPools - The fetched splash pools 
+ * @returns {Record<string, CardanoToken>} - The loaded assets of the  fetched splash pools 
+ */
 export function getAssetsFromPools(
   splashPools: Record<string, SplashPool[]>,
 ): Record<string, CardanoToken> {
@@ -94,7 +110,6 @@ export function getAssetsFromPools(
   };
   Object.values(splashPools).forEach((pools) => {
     pools.forEach((pool) => {
-
       if (
         pool.x.asset.name !== '' &&
         pool.x.asset.name.toUpperCase() !== 'ADA'
@@ -112,6 +127,12 @@ export function getAssetsFromPools(
   return tokens;
 }
 
+/**
+ * Generates the base16 encoded name of the pools nft
+ * @param {string} baseName16 - The base16 encoded name of the pools base token
+ * @param {string} quoteName16 - The base16 encoded name of the pools quote token 
+ * @returns {poolNftNames} The base16 encoded name of the pools nft
+ */
 export function getNftBase16Names(
   baseName16: string,
   quoteName16: string,
@@ -122,6 +143,13 @@ export function getNftBase16Names(
   };
 }
 
+/**
+ * Fetches the metadata of a single token 
+ * @param {string} policyId - The policy of the token
+ * @param {string} base16Name -  The base16 encoded name of the token
+ * @param {MaestroClient} maestroClient - The maestro api handler object 
+ * @returns {Promise<TokenRegistryMetadata | null | undefined>} Returns either the fetched metadata or null/undefined if it's not found 
+ */
 export async function getTokenMetadata(
   policyId: string,
   base16Name: string,
@@ -138,10 +166,8 @@ export async function getTokenMetadata(
     };
   }
   try {
-
-    return (
-      await maestroClient.assets.assetInfo(`${policyId}${base16Name}`)
-    ).data.token_registry_metadata;
+    return (await maestroClient.assets.assetInfo(`${policyId}${base16Name}`))
+      .data.token_registry_metadata;
   } catch (error) {
     // 429
     // 403
@@ -170,7 +196,6 @@ export async function getTokenMetadataWithBackoff(
     new Promise((resolve) => setTimeout(resolve, ms));
 
   const fetchMetadata = async (token: CardanoToken): Promise<void> => {
-
     if (
       metadata.has(token.name.toUpperCase()) ||
       ['ADA', 'LOVELACE'].includes(token.name.toUpperCase())
@@ -182,7 +207,6 @@ export async function getTokenMetadataWithBackoff(
       const assetInfo = await maestroClient.assets.assetInfo(
         `${token.policyId}${token.token.asset.nameBase16}`,
       );
-
 
       const tokenMetadata = assetInfo.data.token_registry_metadata || {
         decimals: 0,
@@ -233,6 +257,11 @@ export async function getTokenMetadataWithBackoff(
   return metadata;
 }
 
+/**
+ * Fetches the splash dex trading pools
+ * @param {SplashInstance} splashClient - The splash dex api handler object  
+ * @returns 
+ */
 export async function getSplashPools(
   splashClient: SplashInstance,
 ): Promise<Record<string, SplashPool[]>> {
@@ -257,10 +286,21 @@ export async function getSplashPools(
   }
 }
 
+/**
+ * Generate a name to be used as the class name
+ * @param {string} networkString - The name of the network to generate the hash with
+ * @returns {string} the generated hash
+ */
 export function generateHash(networkString: string): string {
   return sha256(`${networkString}`).toString(enc.Hex).slice(0, 16);
 }
 
+/**
+ * Updates token metadata separately once is needed 
+ * @param {string} token - The name of token 
+ * @param {TokenRegistryMetadata} metadata - The existing metadata of the token to update
+ * @returns {CardanoToken} The modified cardano token
+ */
 export function updateTokenMetadata(
   token: CardanoToken,
   metadata: TokenRegistryMetadata,

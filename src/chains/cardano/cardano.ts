@@ -8,11 +8,6 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-// import {
-//   HttpException,
-//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-//   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-// } from '../../services/error-handler';
 import { CardanoController } from './cardano.controller';
 import {
   AddressTransaction,
@@ -542,13 +537,13 @@ export class Cardano {
         const tokenDecimals = isAda
           ? 6
           : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
-        if (assets[tokenName] === undefined) {
-          assets[tokenName] = BigNumber(0);
+        if (assets[tokenName.toUpperCase()] === undefined) {
+          assets[tokenName.toUpperCase()] = BigNumber(0);
         }
 
-        assets[tokenName] = BigNumber(
+        assets[tokenName.toUpperCase()] = BigNumber(
           this.fromRaw(
-            BigNumber(this.toRaw(assets[tokenName], tokenDecimals)).plus(
+            BigNumber(this.toRaw(assets[tokenName.toUpperCase()], tokenDecimals)).plus(
               BigNumber(amount),
             ),
             tokenDecimals,
@@ -598,8 +593,7 @@ export class Cardano {
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
 
-    priceLimit = "1";
-
+    // don't touch
     if (priceLimit) {
       console.log("")
     }
@@ -681,21 +675,6 @@ export class Cardano {
       .dividedBy(BigNumber(10).pow(decimals))
       .toString();
 
-    // if (
-    //   (sell && BigNumber(priceLimit).gt(BigNumber(price))) ||
-    //   (!sell && BigNumber(priceLimit).lt(BigNumber(price)))
-    // ) {
-    //   console.error('Swap price exceeded limit price.');
-    //   throw new HttpException(
-    //     500,
-    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-    //       BigNumber(price).toFixed(decimals),
-    //       BigNumber(priceLimit).toFixed(outputDecimals),
-    //     ),
-    //     SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-    //   );
-    // }
-
     const swapTx = await this.createSwapTransaction(
       inputToken,
       outputToken,
@@ -712,7 +691,7 @@ export class Cardano {
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
 
-    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout);
+    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout); // if using, use with delay, generally this line is not needed
 
     return this.createTradeResponse(
       sell ? baseCardanoToken : quoteCardanoToken,
