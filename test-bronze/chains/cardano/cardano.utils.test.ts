@@ -1,17 +1,32 @@
 import * as utils from '../../../src/chains/cardano/cardano.utils';
-import { Configuration as MaestroConfig } from '@maestro-org/typescript-sdk';
+import { MaestroClient, Configuration as MaestroConfig } from '@maestro-org/typescript-sdk';
 import {
   SplashBuilder,
   MaestroExplorer,
   Currency,
 } from '@splashprotocol/sdk';
 
-// SET ``` NODE_OPTIONS=--experimental-vm-modules ``` in package.json to run cardano.utils.ts tests
+// SET ``` NODE_OPTIONS=--experimental-vm-modules ``` in package.json to run cardano.utils.test.ts tests
 
 jest.mock('@maestro-org/typescript-sdk', () => {
   return {
-    __esModule: true,
-    Configuration: jest.fn().mockReturnValue({})
+    Configuration: jest.fn().mockReturnValue({}),
+    MaestroClient: jest.fn().mockReturnValue({
+      assets: {
+        assetInfo: jest.fn().mockResolvedValue({
+          data: {
+            token_registry_metadata: {
+              decimals: 6,
+              description: '',
+              logo: '',
+              name: 'TokenX',
+              ticker: 'TokenX',
+              url: '',
+            }
+          }
+        }),
+      }
+    })
   };
 });
 jest.mock('@splashprotocol/sdk', () => {
@@ -172,6 +187,171 @@ describe('getAssetsFromPools', () => {
       symbol: 'TOKENY',
       nameBase16: '546f6b656e59',
       splashSupport: true,
+    });
+  });
+})
+
+describe('getNftBase16Names', () => {
+  it('Should be defined', () => {
+    expect(utils.getNftBase16Names).toBeDefined();
+  });
+  it('Should be a function', () => {
+    expect(typeof utils.getNftBase16Names).toBe('function');
+  });
+  it('should correctly concatenate baseName16 and quoteName16 to form baseToQuote and quoteToBase', () => {
+    const baseName16 = '414441'; // 'ADA' in hex
+    const quoteName16 = '546f6b656e58'; // 'TokenX' in hex
+
+    const expected = {
+      baseToQuote: '4144415f546f6b656e585f4e4654',
+      quoteToBase: '546f6b656e585f4144415f4e4654',
+    };
+    const result = utils.getNftBase16Names(baseName16, quoteName16);
+    expect(result).toEqual(expected);
+  })
+})
+
+describe('getTokenMetadata', () => {
+  const mockedMaestroClient = new MaestroClient({} as any);
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+  it('Should be defined', () => {
+    expect(utils.getTokenMetadata).toBeDefined();
+  });
+  it('Should be a function', () => {
+    expect(typeof utils.getTokenMetadata).toBe('function');
+  });
+  it('should return metadata if base16Name is "414441"', async () => {
+    const policyId = 'policy123';
+    const base16Name = '414441';
+    const result = await utils.getTokenMetadata(policyId, base16Name
+      , {} as any);
+    expect(result).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'ADA',
+      ticker: 'ADA',
+      url: '',
+    });
+  });
+  it('should call assetInfo if base16Name is not "414441"', async () => {
+    const policyId = 'policy123';
+    const base16Name = '546f6b656e58';
+    const result = await utils.getTokenMetadata(policyId, base16Name
+      , mockedMaestroClient);
+    expect(result).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'TokenX',
+      ticker: 'TokenX',
+      url: '',
+    });
+  });
+  it('should return undefined if assetInfo throws an error', async () => {
+    const policyId = 'policy123';
+    const base16Name = '546f6b656e58';
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo').mockRejectedValue(new Error('test error'));
+    const result = await utils.getTokenMetadata(policyId, base16Name
+      , mockedMaestroClient);
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('getTokenMetadataWithBackoff', () => {
+  const mockedMaestroClient = new MaestroClient({} as any);
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+  it('Should be defined', () => {
+    expect(utils.getTokenMetadataWithBackoff).toBeDefined();
+  })
+  it('Should be a function', () => {
+    expect(typeof utils.getTokenMetadataWithBackoff).toBe('function');
+  });
+  it('should fetch metadata for all tokens successfully', async () => {
+    const mockTokenX = {
+      asset: {
+        name: 'TokenX',
+        policyId: 'policy123',
+        nameBase16: '546f6b656e58',
+      },
+    } as any;
+
+    const mockTokenY = {
+      asset: {
+        name: 'TokenY',
+        policyId: 'policy456',
+        nameBase16: '546f6b656e59',
+      },
+    };
+    const tokens = [
+      {
+        token: mockTokenX,
+        policyId: 'policy123',
+        decimals: 6,
+        name: 'TokenX',
+        symbol: 'TokenX',
+        nameBase16: '546f6b656e58',
+      },
+      {
+        token: mockTokenY,
+        policyId: 'policy456',
+        decimals: 6,
+        name: 'TokenY',
+        symbol: 'TokenY',
+        nameBase16: '546f6b656e59',
+      }
+    ];
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo').mockResolvedValueOnce({
+      data: {
+        token_registry_metadata: {
+          decimals: 6,
+          description: '',
+          logo: '',
+          name: 'TokenX',
+          ticker: 'TokenX',
+          url: '',
+        }
+      }
+    } as any);
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo').mockResolvedValueOnce({
+      data: {
+        token_registry_metadata: {
+          decimals: 6,
+          description: '',
+          logo: '',
+          name: 'TOKENY',
+          ticker: 'TOKENY',
+          url: '',
+        }
+      }
+    } as any);
+
+    const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
+
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledTimes(2);
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledWith('policy123546f6b656e58');
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledWith('policy456546f6b656e59');
+
+    expect(result.get('TOKENX')).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'TokenX',
+      ticker: 'TokenX',
+      url: '',
+    });
+    expect(result.get('TOKENY')).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'TOKENY',
+      ticker: 'TOKENY',
+      url: '',
     });
   });
 })
