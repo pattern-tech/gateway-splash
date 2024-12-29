@@ -53,7 +53,7 @@ describe('Cardano', () => {
   beforeEach(() => {
     jest.spyOn(utils, 'getMaestroConfig').mockReturnValue({} as any);
     jest.spyOn(utils, 'getSplashInstance').mockReturnValue({} as any);
-    cardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+    cardano = new Cardano('mainnet', mockConfig, 100, {} as any, 'maestroApiKey');
   });
   afterEach(() => {
     jest.clearAllMocks();
@@ -63,11 +63,11 @@ describe('Cardano', () => {
   });
 
   it('Should call getMaestroConfig and getSplashInstance with the correct parameters when instantiating', () => {
-    expect(utils.getMaestroConfig).toHaveBeenCalledWith('Mainnet', 'nodeURL');
-    expect(utils.getSplashInstance).toHaveBeenCalledWith('Mainnet');
+    expect(utils.getMaestroConfig).toHaveBeenCalledWith('Mainnet', 'nodeURL', 'maestroApiKey');
+    expect(utils.getSplashInstance).toHaveBeenCalledWith('Mainnet', 'maestroApiKey');
   });
   it('Should create cardano instance when network is equal to "preprod"', () => {
-    const preprodInstance = new Cardano('preprod', mockConfig, 100, {} as any);
+    const preprodInstance = new Cardano('preprod', mockConfig, 100, {} as any, 'maestroApiKey');
     expect(preprodInstance.network).toEqual('preprod');
   });
   it('Should create cardano instance with "preview" network, when network is not equal to "mainnet" and "preprod"', () => {
@@ -596,13 +596,12 @@ describe('Cardano', () => {
       // Arrange
       cardano['_ready'] = true;
       jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
-        { policyId: 'basePolicy', name: 'baseToken' },
-        { policyId: 'quotePolicy', name: 'quoteToken' },
+        { policyId: 'basePolicy', name: 'baseToken', token: {asset: {nameBase16: 'nameBase16'}} },
       ]);
-      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValue(undefined);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(undefined);
       jest
         .spyOn(utils, 'getTokenMetadata')
-        .mockResolvedValue('validTokenMetadata' as any);
+        .mockResolvedValueOnce('validTokenMetadata' as any);
       await expect(
         cardano.swap('baseToken', 'quoteToken', BigNumber(1), true, '18'),
       ).rejects.toThrow(
