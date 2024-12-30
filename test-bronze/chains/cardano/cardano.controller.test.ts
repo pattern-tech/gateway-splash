@@ -247,7 +247,6 @@ describe('CardanoController', () => {
         outputs: [],
       } as any);
       const response: any = await CardanoController.poll(cardano, { txHash: 'txHash' });
-      console.log(response)
       expect(response).toEqual({
         tx_hash: 'txHash',
         block_height: 100,

@@ -289,27 +289,6 @@ describe('getTokenMetadataWithBackoff', () => {
   it('Should be a function', () => {
     expect(typeof utils.getTokenMetadataWithBackoff).toBe('function');
   });
-  // it('Should return, when token name is ADA', async () => {
-  //   const tokens = [
-  //     {
-  //       token: {
-  //         asset: {
-  //           name: 'ADA',
-  //           policyId: '',
-  //           nameBase16: '414441',
-  //         },
-  //       },
-  //       policyId: '',
-  //       decimals: 6,
-  //       name: 'ADA',
-  //       symbol: 'ADA',
-  //       nameBase16: '414441',
-  //     } as any,
-  //   ];
-  //   const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
-  //   console.log(result)
-  //   // expect(result).toEqual(undefined);
-  // });
   it('should fetch metadata for all tokens successfully', async () => {
     const mockTokenX = {
       asset: {

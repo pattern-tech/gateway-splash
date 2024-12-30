@@ -570,6 +570,36 @@ describe('Cardano', () => {
     });
   });
   describe('swap', () => {
+    const baseToken = {
+      policyId: 'basePolicy',
+      name: 'baseToken',
+      decimals: 6,
+      token: {
+        asset: {
+          name: 'baseToken',
+          policyId: 'basePolicy',
+          nameBase16: '546f6b656e58',
+        }
+      }
+    };
+    const quoteToken = {
+      policyId: 'quotePolicy',
+      name: 'quoteToken',
+      decimals: 3,
+      token: {
+        asset: {
+          name: 'quoteToken',
+          policyId: 'quotePolicy',
+          nameBase16: '341f3b656e34',
+        }
+      }
+    }
+    beforeEach(() => {
+      cardano['_ready'] = true;
+    })
+    afterEach(() => {
+      jest.clearAllMocks();
+    })
     it('Should be defined', () => {
       expect(cardano.swap).toBeDefined();
     });
@@ -583,7 +613,6 @@ describe('Cardano', () => {
     });
     it('Should throw new Error when amoumt is negative or zero', async () => {
       // Arrange
-      cardano['_ready'] = true;
       // Act & Assert
       await expect(
         cardano.swap('baseToken', 'quoteToken', BigNumber(-1), true, '18'),
@@ -594,9 +623,9 @@ describe('Cardano', () => {
     });
     it('Should throw error if getTokenMetadata fails to return metadata for baseMetadata', async () => {
       // Arrange
-      cardano['_ready'] = true;
       jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
-        { policyId: 'basePolicy', name: 'baseToken', token: {asset: {nameBase16: 'nameBase16'}} },
+        baseToken,
+        quoteToken
       ]);
       jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(undefined);
       jest
@@ -608,6 +637,59 @@ describe('Cardano', () => {
         "Couldn't find the tokens metadata, try a verified token",
       );
     });
+    it('should throw error if getTokenMetadata fails to return metadata for quoteMetadata', async () => {
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        baseToken,
+        quoteToken
+      ]);
+      jest
+        .spyOn(utils, 'getTokenMetadata')
+        .mockResolvedValueOnce('validTokenMetadata' as any);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(undefined);
+      await expect(
+        cardano.swap('baseToken', 'quoteToken', BigNumber(1), true, '18'),
+      ).rejects.toThrow(
+        "Couldn't find the tokens metadata, try a verified token",
+      );
+    })
+    it('Should create trade pesponse tokens successfully', async () => {
+      jest
+        .spyOn(utils, 'getTokenMetadata')
+        .mockResolvedValueOnce('baseMetadata' as any);
+      jest
+        .spyOn(utils, 'getTokenMetadata')
+        .mockResolvedValueOnce('quoteMetadata' as any);
+      jest.spyOn(utils, 'updateTokenMetadata').mockReturnValueOnce(baseToken as any);
+      jest.spyOn(utils, 'updateTokenMetadata').mockReturnValueOnce(quoteToken as any);
+      jest.spyOn(cardano as any, 'createTokens').mockReturnValue(['inputToken', 'outputToken'] as any)
+      jest.spyOn(utils, 'getNftBase16Names').mockReturnValue(['poolNftNames'] as any);
+      jest.spyOn(cardano as any, 'validatePool').mockReturnValue({});
+      jest.spyOn(cardano as any, 'createSwapTransaction').mockResolvedValue('swapHash');
+      jest.spyOn(cardano as any, 'signAndSubmitTransaction').mockResolvedValue('txHash');
+      jest.spyOn(cardano, 'estimateFee').mockResolvedValue('0.5');
+      jest.spyOn(cardano, 'calculateMinOutput').mockReturnValue(BigNumber(1));
+      jest.spyOn(cardano as any, 'createTradeResponse').mockReturnValue('trade response now is cerated')
+      jest.spyOn(cardano as any, 'getPrice').mockResolvedValue({ raw: '5', formatted: '1' } as any);
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        baseToken,
+        quoteToken
+      ]);
+      expect(await cardano.swap('baseToken', 'quoteToken', BigNumber(1), true, '18')).toEqual('trade response now is cerated');
+      expect(utils.getTokenMetadata).toHaveBeenCalledTimes(2);
+      expect(utils.updateTokenMetadata).toHaveBeenCalledTimes(2);
+      expect(utils.getNftBase16Names).toHaveBeenCalledTimes(1);
+      expect(cardano['validatePool']).toHaveBeenCalledTimes(1);
+      expect(cardano['createSwapTransaction']).toHaveBeenCalledTimes(1);
+      expect(cardano['signAndSubmitTransaction']).toHaveBeenCalledTimes(1);
+      expect(cardano['estimateFee']).toHaveBeenCalledTimes(1);
+      expect(cardano['calculateMinOutput']).toHaveBeenCalledTimes(1);
+      expect(cardano['createTradeResponse']).toHaveBeenCalledTimes(1);
+      expect(cardano['getPrice']).toHaveBeenCalledTimes(1);
+      expect(cardano['validateTokens']).toHaveBeenCalledTimes(1);
+      expect(cardano['createTokens']).toHaveBeenCalledTimes(1);
+      expect(cardano['createTokens']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), true);
+      expect(cardano['createTradeResponse']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), '0.005', BigNumber(1), true, '0.5', 'txHash')
+    })
   });
   describe('validateTokens', () => {
     it('Should be defined', () => {
