@@ -5,6 +5,7 @@ import {
   MaestroExplorer,
   Currency,
 } from '@splashprotocol/sdk';
+import { SplashPool } from '../../../src/chains/cardano/types/cardano.types';
 
 // SET ``` NODE_OPTIONS=--experimental-vm-modules ``` in package.json to run cardano.utils.test.ts tests
 
@@ -47,6 +48,22 @@ jest.mock('@splashprotocol/sdk', () => {
     }
   };
 });
+// toString: jest.fn().mockReturnValue({
+// slice: jest.fn().mockReturnValue('5f4dcc3b5aa765d61'),
+// }),
+jest.mock('crypto-js', () => {
+  return {
+    sha256: {
+      sha256: jest.fn(),
+    },
+    enc: {
+      Hex: {
+        stringify: jest.fn().mockReturnValue('5f4dcc3b5aa765d61d8327deb882cf99'),
+      },
+    },
+  };
+});
+
 describe('getMaestroConfig', () => {
   it('Should be defined', () => {
     expect(utils.getMaestroConfig).toBeDefined();
@@ -272,6 +289,27 @@ describe('getTokenMetadataWithBackoff', () => {
   it('Should be a function', () => {
     expect(typeof utils.getTokenMetadataWithBackoff).toBe('function');
   });
+  // it('Should return, when token name is ADA', async () => {
+  //   const tokens = [
+  //     {
+  //       token: {
+  //         asset: {
+  //           name: 'ADA',
+  //           policyId: '',
+  //           nameBase16: '414441',
+  //         },
+  //       },
+  //       policyId: '',
+  //       decimals: 6,
+  //       name: 'ADA',
+  //       symbol: 'ADA',
+  //       nameBase16: '414441',
+  //     } as any,
+  //   ];
+  //   const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
+  //   console.log(result)
+  //   // expect(result).toEqual(undefined);
+  // });
   it('should fetch metadata for all tokens successfully', async () => {
     const mockTokenX = {
       asset: {
@@ -304,7 +342,21 @@ describe('getTokenMetadataWithBackoff', () => {
         name: 'TokenY',
         symbol: 'TokenY',
         nameBase16: '546f6b656e59',
-      }
+      },
+      {
+        token: {
+          asset: {
+            name: 'ADA',
+            policyId: '',
+            nameBase16: '414441',
+          },
+        },
+        policyId: '',
+        decimals: 6,
+        name: 'ADA',
+        symbol: 'ADA',
+        nameBase16: '414441',
+      },
     ];
     jest.spyOn(mockedMaestroClient.assets, 'assetInfo').mockResolvedValueOnce({
       data: {
@@ -353,5 +405,115 @@ describe('getTokenMetadataWithBackoff', () => {
       ticker: 'TOKENY',
       url: '',
     });
+  });
+})
+describe('getSplashPools', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+  const mockedPools: SplashPool[] = [
+    { nft: { nameBase16: 'name1' } } as SplashPool,
+    { nft: { nameBase16: 'name2' } } as SplashPool,
+    { nft: { nameBase16: 'name1' } } as SplashPool,
+  ];
+  const splashClient = {
+    api: {
+      getSplashPools: jest.fn().mockResolvedValueOnce(mockedPools)
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error('test error')),
+
+    }
+  } as any;
+
+  it('Should be defined', () => {
+    expect(utils.getSplashPools).toBeDefined();
+  });
+  it('Should be a function', () => {
+    expect(typeof utils.getSplashPools).toBe('function');
+  });
+  it('should return a correctly mapped pool map when successful', async () => {
+    const result = await utils.getSplashPools(splashClient);
+    expect(result).toEqual({
+      name1: [mockedPools[0], mockedPools[2]],
+      name2: [mockedPools[1]],
+    });
+    expect(splashClient.api.getSplashPools).toHaveBeenCalledTimes(1);
+  });
+  it('should handle empty pool list', async () => {
+    const result = await utils.getSplashPools(splashClient);
+    expect(result).toEqual({});
+    expect(splashClient.api.getSplashPools).toHaveBeenCalledTimes(1);
+  });
+  it('should handle error fetching pools', async () => {
+    jest.spyOn(console, 'error').mockReturnValue;
+    await expect(utils.getSplashPools(splashClient)).rejects.toThrow('Failed to fetch the splash pools Error: test error');
+    expect(console.error).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('generateHash', () => {
+  it('Should be defined', () => {
+    expect(utils.generateHash).toBeDefined();
+  });
+  it('Should be a function', () => {
+    expect(typeof utils.generateHash).toBe('function');
+  });
+  it('should return a hash of the input', () => {
+    const result = utils.generateHash('testNetwork');
+    expect(result).toEqual('5f4dcc3b5aa765d61d8327deb882cf99'.slice(0, 16));
+  });
+})
+
+describe('updateTokenMetadata', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+  it('Should be defined', () => {
+    expect(utils.updateTokenMetadata).toBeDefined();
+  });
+  it('Should be a function', () => {
+    expect(typeof utils.updateTokenMetadata).toBe('function');
+  });
+  it('should update token metadata with new values', () => {
+    const token = {
+      decimals: 18,
+      symbol: 'OLD',
+      policyId: 'policy123',
+      token: {
+        asset: {
+          name: 'TokenY',
+          policyId: 'policy456',
+          nameBase16: '546f6b656e59',
+          metadata: {},
+        }
+      },
+    } as any;
+
+    const metadata = {
+      decimals: 8,
+      ticker: 'NEW',
+      additionalProperty: 'Some value',
+    } as any;
+    const updatedToken = utils.updateTokenMetadata(token, metadata);
+    expect(updatedToken.decimals).toEqual(8);
+    expect(updatedToken).toEqual({
+      decimals: 8,
+      symbol: 'NEW',
+      policyId: 'policy123',
+      token: {
+        asset: {
+          name: 'TokenY',
+          policyId: 'policy456',
+          nameBase16: '546f6b656e59',
+          metadata: {
+            policyId: 'policy123',
+            subject: '',
+            decimals: 8,
+            ticker: 'NEW',
+            additionalProperty: 'Some value',
+          },
+        }
+      },
+    })
   });
 })
