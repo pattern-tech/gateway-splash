@@ -27,6 +27,7 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
 }));
 jest.mock('@splashprotocol/sdk', () => ({
   isOOROrder: jest.fn(),
+  hexToString: jest.fn((hex) => `decoded(${hex})`),
   stringToHex: jest.fn(),
   HotWallet: {
     fromSeed: jest.fn(),
@@ -743,4 +744,56 @@ describe('Cardano', () => {
       expect(cardano['findToken']).toHaveBeenCalledWith('QUOTETOKEN');
     });
   });
+
+  describe('createTokens', () => {
+    it('Should be defined', () => {
+      expect(cardano['createTokens']).toBeDefined();
+    });
+    it('Should create input and output tokens correctly', () => {
+      // Arrange
+      const baseToken = {
+        policyId: 'basePolicy',
+        name: 'baseToken',
+        decimals: 6,
+        token: {
+          asset: {
+            name: 'baseToken',
+            policyId: 'basePolicy',
+            nameBase16: '546f6b656e58',
+          },
+          withAmount: jest.fn().mockReturnValue('inputToken'),
+        }
+      } as any;
+      const quoteToken = {
+        policyId: 'quotePolicy',
+        name: 'quoteToken',
+        decimals: 3,
+        token: {
+          asset: {
+            name: 'quoteToken',
+            policyId: 'quotePolicy',
+            nameBase16: '341f3b656e34',
+          },
+          withAmount: jest.fn().mockReturnValue('outputToken'),
+        }
+      } as any
+      // Act
+      const result = cardano['createTokens'](baseToken, quoteToken, BigNumber(1), true);
+      // Assert
+      expect(result).toEqual(['inputToken', 'outputToken']);
+    });
+  })
+
+  describe('validatePool', () => {
+    it('Should be defined', () => {
+      expect(cardano['validatePool']).toBeDefined()
+    });
+    it('should throw an error for an unsupported pool', () => {
+      // Arrange
+      cardano['_splashPools'] = {};
+      expect(() => {
+        cardano['validatePool']({ baseToQuote: 'test15ftest2junkChar', quoteToBase: 'quoteToken' });
+      }).toThrow('The decoded(test1),decoded(test2) pair is not supported by splash dex!');
+    })
+  })
 });
