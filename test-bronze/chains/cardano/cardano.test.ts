@@ -796,4 +796,65 @@ describe('Cardano', () => {
       }).toThrow('The decoded(test1),decoded(test2) pair is not supported by splash dex!');
     })
   })
-});
+  describe('createSwapTransaction', () => {
+    it('Should be defined', () => {
+      expect(cardano['createSwapTransaction']).toBeDefined();
+    });
+    it('Should call "newTx", "spotOrder" & "complete"', async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        newTx: jest.fn().mockReturnValue({
+          spotOrder: jest.fn().mockReturnValue({
+            complete: jest.fn(),
+          })
+        })
+
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      await tempCardano['createSwapTransaction']({} as any, { asset: 'asset' } as any, 1)
+      expect(tempCardano['_dex'].newTx).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().spotOrder).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().spotOrder).toHaveBeenCalledWith({
+        input: {},
+        outputAsset: 'asset',
+        slippage: 1
+      });
+      expect(tempCardano['_dex'].newTx().spotOrder().complete).toHaveBeenCalledTimes(1);
+    });
+  })
+
+  describe('cancel', () => {
+    it('Should be defined', () => {
+      expect(cardano['cancel']).toBeDefined();
+    });
+    it('Should handle error when any error occurs', async () => {
+      // jest.spyOn(console, 'log').mockRejectedValue;
+      await expect(cardano['cancel']('txHash', 1)).rejects.toThrow(`TypeError: Cannot read properties of undefined (reading 'submitTx')`);
+    });
+    it('Should call "newTx", "cancelOperation", "complete" and "submitTx"', async () => {
+      jest.spyOn(console, 'log').mockReturnValue({} as any);
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        explorer: {
+          submitTx: jest.fn().mockResolvedValue({
+
+          }),
+        },
+        newTx: jest.fn().mockReturnValue({
+          cancelOperation: jest.fn().mockReturnValue({
+            complete: jest.fn().mockResolvedValue({
+              sign: jest.fn().mockResolvedValue({
+                cbor: 'cbor'
+              })
+            })
+          })
+        })
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      await tempCardano['cancel']('txHash', 1)
+      expect(tempCardano['_dex'].newTx).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().cancelOperation).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().cancelOperation).toHaveBeenCalledWith({ txHash: "txHash", index: 1 });
+      expect(tempCardano['_dex'].newTx().cancelOperation().complete).toHaveBeenCalledTimes(1);
+      expect(console.log).toHaveBeenCalledWith('order failure, cancelling txHash:1');
+    });
+  })
+})
