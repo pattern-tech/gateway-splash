@@ -23,6 +23,9 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
         ],
       }),
     },
+    blocks: {
+      blockInfo: jest.fn().mockResolvedValue({ data: { timestamp: '123456789' } })
+    }
   })),
 }));
 jest.mock('@splashprotocol/sdk', () => ({
@@ -956,6 +959,50 @@ describe('Cardano', () => {
     });
     it('Should return undefined if token is not found', () => {
       expect(cardano['findToken']('invalidToken')).toBeUndefined();
+    });
+  })
+  describe('getBlockTimestamp', () => {
+    it('Should be defined', () => {
+      expect(cardano['getBlockTimestamp']).toBeDefined();
+    });
+    it('Should return the timestamp of the block', async () => {
+      jest.spyOn(cardano, 'getNetworkHeight').mockResolvedValue(1);
+      const result = await cardano['getBlockTimestamp']();
+      expect(result).toEqual(123456789);
+      expect(cardano['_node'].blocks.blockInfo).toHaveBeenCalledWith('1');
+    });
+  })
+
+  describe('signAndSubmitTransaction', () => {
+    it('Should be defined', () => {
+      expect(cardano['signAndSubmitTransaction']).toBeDefined();
+    });
+    it('Should call sign and submit transaction', async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        explorer: {
+          submitTx: jest.fn().mockResolvedValue('txHash')
+        },
+        sign: jest.fn().mockResolvedValue({
+          cbor: 'cbor'
+        })
+      } as any);
+
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      const tx = {
+        sign: jest.fn().mockResolvedValue({
+          cbor: 'cbor',
+        })
+      } as any;
+      const result = await tempCardano['signAndSubmitTransaction'](tx);
+      expect(result).toEqual('txHash');
+      expect(tempCardano['_dex'].explorer.submitTx).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].explorer.submitTx).toHaveBeenCalledWith('cbor');
+    });
+    it('Should throw an error when sign fails', async () => {
+      const tx = {
+        sign: jest.fn().mockRejectedValue(new Error('sign error'))
+      } as any;
+      await expect(cardano['signAndSubmitTransaction'](tx)).rejects.toThrow('Error while signing and submitting the transaction: \n Error: sign error');
     });
   })
 })
