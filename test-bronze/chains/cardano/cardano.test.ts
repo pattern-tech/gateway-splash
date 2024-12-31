@@ -1005,4 +1005,146 @@ describe('Cardano', () => {
       await expect(cardano['signAndSubmitTransaction'](tx)).rejects.toThrow('Error while signing and submitting the transaction: \n Error: sign error');
     });
   })
+
+  describe('createTradeResponse', () => {
+    it('Should be defined', () => {
+      expect(cardano['createTradeResponse']).toBeDefined();
+    });
+    it('Should create trade response correctly', async () => {
+      jest.spyOn(cardano as any, 'getBlockTimestamp').mockResolvedValue(123456789);
+      jest.spyOn(cardano as any, 'toRaw').mockReturnValue('0.5');
+      const result = await cardano['createTradeResponse']({
+        policyId: 'basePolicy',
+        name: 'baseToken',
+        symbol: 'baseToken',
+        decimals: 6,
+      } as any, {
+        policyId: 'quotePolicy',
+        name: 'quoteToken',
+        symbol: 'quoteToken',
+        decimals: 3,
+      } as any, BigNumber(1), '0.005', BigNumber(1), true, '0.5', 'txHash');
+
+      expect(result).toEqual({
+        network: 'mainnet',
+        timestamp: 123456789,
+        latency: 0,
+        base: 'baseToken',
+        quote: 'quoteToken',
+        amount: '1',
+        rawAmount: '0.5',
+        expectedOut: '1',
+        price: '0.005',
+        gasPrice: 100,
+        gasPriceToken: 'ADA',
+        gasLimit: 100,
+        gasCost: '0.5',
+        txHash: 'txHash',
+      });
+      expect(cardano['getBlockTimestamp']).toHaveBeenCalledTimes(1);
+      expect(cardano['toRaw']).toHaveBeenCalledTimes(1);
+      expect(cardano['toRaw']).toHaveBeenCalledWith(BigNumber(1), 6);
+    })
+  })
+
+  describe('createPriceResponse', () => {
+    const baseToken = {
+      policyId: 'basePolicy',
+      name: 'baseToken',
+      symbol: 'baseToken',
+      decimals: 6,
+      token: {
+        asset: {
+          name: 'baseToken',
+          policyId: 'basePolicy',
+          nameBase16: '546f6b656e58',
+        },
+        withAmount: jest.fn().mockReturnValue(1),
+      }
+    } as any;
+    const quoteToken = {
+      policyId: 'quotePolicy',
+      name: 'quoteToken',
+      decimals: 3,
+      symbol: 'quoteToken',
+      token: {
+        asset: {
+          name: 'quoteToken',
+          policyId: 'quotePolicy',
+          nameBase16: '341f3b656e34',
+        },
+        withAmount: jest.fn().mockReturnValue(1),
+      }
+    } as any
+    it('Should be defined', () => {
+      expect(cardano['createPriceResponse']).toBeDefined();
+    });
+    it('Should create price response correctly', async () => {
+      jest.spyOn(cardano as any, 'getBlockTimestamp').mockResolvedValue(123456789);
+      jest.spyOn(cardano, 'calculateMinOutput').mockReturnValue(BigNumber(1));
+      jest.spyOn(cardano as any, 'getPrice').mockResolvedValue({ raw: '5', formatted: '1' });
+      jest.spyOn(cardano as any, 'toRaw').mockReturnValue('5');
+
+      // estimatedFee is not provided in the arguments so it should be provided by the estimateFee function
+      jest.spyOn(cardano, 'estimateFee').mockResolvedValue('3');
+
+      const result = await cardano['createPriceResponse'](baseToken, quoteToken, BigNumber(1), true, '5', '100');
+      expect(result).toEqual({
+        base: 'baseToken',
+        quote: 'quoteToken',
+        amount: '1',
+        rawAmount: '5',
+        expectedAmount: '1',
+        price: "0.005",
+        network: 'mainnet',
+        timestamp: 123456789,
+        latency: 0,
+        gasPrice: 100,
+        gasPriceToken: 'ADA',
+        gasLimit: 100,
+        gasCost: '3',
+      });
+      expect(cardano['toRaw']).toHaveBeenCalledTimes(2);
+      expect(cardano['toRaw']).toHaveBeenCalledWith(BigNumber(1), 6);
+      expect(cardano['estimateFee']).toHaveBeenCalledTimes(1);
+      expect(cardano['estimateFee']).toHaveBeenCalledWith(1, {
+        name: 'quoteToken',
+        policyId: 'quotePolicy',
+        nameBase16: '341f3b656e34',
+      });
+      expect(cardano['calculateMinOutput']).toHaveBeenCalledTimes(1);
+      expect(cardano['calculateMinOutput']).toHaveBeenCalledWith(BigNumber(1), BigNumber('0.005'), 5);
+      expect(cardano['getPrice']).toHaveBeenCalledTimes(1);
+      expect(cardano['getPrice']).toHaveBeenCalledWith(baseToken, quoteToken, true, BigNumber(1), '100');
+    })
+  })
+
+  describe('calculateMinOutput', () => {
+    it('Should be defined', () => {
+      expect(cardano['calculateMinOutput']).toBeDefined();
+    });
+    it('Should calculate min output correctly', () => {
+      const result = cardano['calculateMinOutput'](BigNumber(1), BigNumber('0.005'), 5);
+      expect(result).toEqual(BigNumber(190));
+    })
+  })
+
+  describe('fromRaw', () => {
+    it('Should be defined', () => {
+      expect(cardano['fromRaw']).toBeDefined();
+    });
+    it('should correctly convert raw amounts with decimals', () => {
+      const result = cardano['fromRaw'](BigNumber('1000000'), 6);
+      expect(result).toEqual('1');
+    })
+  });
+  describe('toRaw', () => {
+    it('Should be defined', () => {
+      expect(cardano['toRaw']).toBeDefined();
+    });
+    it('should correctly convert amounts to raw amounts', () => {
+      const result = cardano['toRaw'](BigNumber(1), 6);
+      expect(result).toEqual('1000000');
+    })
+  })
 })
