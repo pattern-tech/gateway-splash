@@ -827,7 +827,6 @@ describe('Cardano', () => {
       expect(cardano['cancel']).toBeDefined();
     });
     it('Should handle error when any error occurs', async () => {
-      // jest.spyOn(console, 'log').mockRejectedValue;
       await expect(cardano['cancel']('txHash', 1)).rejects.toThrow(`TypeError: Cannot read properties of undefined (reading 'submitTx')`);
     });
     it('Should call "newTx", "cancelOperation", "complete" and "submitTx"', async () => {
@@ -855,6 +854,108 @@ describe('Cardano', () => {
       expect(tempCardano['_dex'].newTx().cancelOperation).toHaveBeenCalledWith({ txHash: "txHash", index: 1 });
       expect(tempCardano['_dex'].newTx().cancelOperation().complete).toHaveBeenCalledTimes(1);
       expect(console.log).toHaveBeenCalledWith('order failure, cancelling txHash:1');
+    });
+  })
+
+  describe('estimate', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+    const baseToken = {
+      policyId: 'basePolicy',
+      name: 'baseToken',
+      decimals: 6,
+      token: {
+        asset: {
+          name: 'baseToken',
+          policyId: 'basePolicy',
+          nameBase16: '546f6b656e58',
+        },
+        withAmount: jest.fn().mockReturnValue('inputToken'),
+      }
+    } as any;
+    const quoteToken = {
+      policyId: 'quotePolicy',
+      name: 'quoteToken',
+      decimals: 3,
+      token: {
+        asset: {
+          name: 'quoteToken',
+          policyId: 'quotePolicy',
+          nameBase16: '341f3b656e34',
+        },
+        withAmount: jest.fn().mockReturnValue('outputToken'),
+      }
+    } as any
+    it('Should be defined', () => {
+      expect(cardano['estimate']).toBeDefined();
+    });
+    it('Should throw an error when baseMetadata or quoteMetadata is undefined', async () => {
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        baseToken,
+        quoteToken
+      ]);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(null);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(quoteToken);
+      await expect(cardano.estimate('baseToken', 'quoteToken', BigNumber(1), true)).rejects.toThrow(`Couldn't find the tokens metadata, try a verified token`);
+    })
+    it('Should call createPriceResponse function with the correct parameters', async () => {
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        baseToken,
+        quoteToken
+      ]);
+      jest.spyOn(utils, 'updateTokenMetadata').mockReturnValueOnce(baseToken);
+      jest.spyOn(utils, 'updateTokenMetadata').mockReturnValueOnce(quoteToken);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(baseToken);
+      jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(quoteToken);
+      jest.spyOn(cardano as any, 'createPriceResponse').mockReturnValue('priceResponse');
+      expect(await cardano.estimate('baseToken', 'quoteToken', BigNumber(1), true, '1')).toEqual('priceResponse');
+      expect(cardano['createPriceResponse']).toHaveBeenCalledTimes(1);
+      expect(cardano['createPriceResponse']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), true, '1');
+      expect(cardano['validateTokens']).toHaveBeenCalledWith('BASETOKEN', 'QUOTETOKEN');
+      expect(utils.getTokenMetadata).toHaveBeenCalledTimes(2);
+      expect(utils.getTokenMetadata).toHaveBeenCalledWith(baseToken.policyId, baseToken.token.asset.nameBase16, cardano['_node']);
+      expect(utils.getTokenMetadata).toHaveBeenCalledWith(quoteToken.policyId, quoteToken.token.asset.nameBase16, cardano['_node']);
+      expect(utils.updateTokenMetadata).toHaveBeenCalledTimes(2);
+      expect(utils.updateTokenMetadata).toHaveBeenCalledWith(baseToken, baseToken);
+      expect(utils.updateTokenMetadata).toHaveBeenCalledWith(quoteToken, quoteToken);
+    })
+  })
+
+  describe('findToken', () => {
+    it('Should be defined', () => {
+      expect(cardano['findToken']).toBeDefined();
+    });
+    it('Should return token if token is found', () => {
+      cardano['_assetMap'] = {
+        'test': {
+          policyId: 'testPolicy',
+          name: 'test',
+          decimals: 6,
+          token: {
+            asset: {
+              name: 'test',
+              policyId: 'testPolicy',
+              nameBase16: '546f6b656e58',
+            },
+          }
+        } as any
+      }
+      expect(cardano['findToken']('test')).toEqual({
+        policyId: 'testPolicy',
+        name: 'test',
+        decimals: 6,
+        token: {
+          asset: {
+            name: 'test',
+            policyId: 'testPolicy',
+            nameBase16: '546f6b656e58',
+          },
+        }
+      });
+    });
+    it('Should return undefined if token is not found', () => {
+      expect(cardano['findToken']('invalidToken')).toBeUndefined();
     });
   })
 })
