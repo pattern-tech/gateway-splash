@@ -1,13 +1,19 @@
 import { Cardano } from '../../../src/chains/cardano/cardano';
 import * as utils from '../../../src/chains/cardano/cardano.utils';
 import * as config from '../../../src/chains/cardano/cardano.config';
-import { HotWallet, isOOROrder } from '@splashprotocol/sdk';
+import { HotWallet, isOOROrder, Price, selectEstimatedPrice } from '@splashprotocol/sdk';
 import fse from 'fs-extra';
 import { BigNumber } from 'bignumber.js';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
+    transactions: {
+      txInfo: jest.fn().mockResolvedValue({ data: 'txData' }),
+    },
+    txManager: {
+      txManagerState: jest.fn().mockResolvedValue('txManagerState'),
+    },
     general: {
       chainTip: jest.fn().mockResolvedValue({
         data: {
@@ -22,6 +28,7 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
           { tx_hash: 'tx2', index: 1, slot: 101 },
         ],
       }),
+      txsByAddress: jest.fn().mockResolvedValue({ data: [] }),
     },
     blocks: {
       blockInfo: jest.fn().mockResolvedValue({ data: { timestamp: '123456789' } })
@@ -29,12 +36,16 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
   })),
 }));
 jest.mock('@splashprotocol/sdk', () => ({
+  selectEstimatedPrice: jest.fn().mockReturnValue('priceWithNoPriceLimit' as any),
   isOOROrder: jest.fn(),
   hexToString: jest.fn((hex) => `decoded(${hex})`),
   stringToHex: jest.fn(),
   HotWallet: {
     fromSeed: jest.fn(),
   },
+  Price: {
+    new: jest.fn().mockReturnValue('price' as any),
+  }
 }));
 jest.mock('../../../src/chains/cardano/wallet.service', () => ({
   CardanoWallet: jest.fn().mockImplementation(() => ({
@@ -44,6 +55,36 @@ jest.mock('../../../src/chains/cardano/wallet.service', () => ({
 let cardano: Cardano;
 
 describe('Cardano', () => {
+  const baseToken = {
+    policyId: 'basePolicy',
+    name: 'baseToken',
+    symbol: 'baseToken',
+    decimals: 6,
+    token: {
+      asset: {
+        name: 'baseToken',
+        policyId: 'basePolicy',
+        nameBase16: '546f6b656e58',
+        isAda: jest.fn().mockReturnValue(false),
+      },
+      withAmount: jest.fn().mockReturnValue(1),
+    }
+  } as any;
+  const quoteToken = {
+    policyId: 'quotePolicy',
+    name: 'quoteToken',
+    decimals: 3,
+    symbol: 'quoteToken',
+    token: {
+      asset: {
+        name: 'quoteToken',
+        policyId: 'quotePolicy',
+        nameBase16: '341f3b656e34',
+        isAda: jest.fn().mockReturnValue(false),
+      },
+      withAmount: jest.fn().mockReturnValue(1),
+    }
+  } as any
   const mockConfig: any = {
     network: {
       name: 'name',
@@ -574,30 +615,6 @@ describe('Cardano', () => {
     });
   });
   describe('swap', () => {
-    const baseToken = {
-      policyId: 'basePolicy',
-      name: 'baseToken',
-      decimals: 6,
-      token: {
-        asset: {
-          name: 'baseToken',
-          policyId: 'basePolicy',
-          nameBase16: '546f6b656e58',
-        }
-      }
-    };
-    const quoteToken = {
-      policyId: 'quotePolicy',
-      name: 'quoteToken',
-      decimals: 3,
-      token: {
-        asset: {
-          name: 'quoteToken',
-          policyId: 'quotePolicy',
-          nameBase16: '341f3b656e34',
-        }
-      }
-    }
     beforeEach(() => {
       cardano['_ready'] = true;
     })
@@ -753,37 +770,10 @@ describe('Cardano', () => {
       expect(cardano['createTokens']).toBeDefined();
     });
     it('Should create input and output tokens correctly', () => {
-      // Arrange
-      const baseToken = {
-        policyId: 'basePolicy',
-        name: 'baseToken',
-        decimals: 6,
-        token: {
-          asset: {
-            name: 'baseToken',
-            policyId: 'basePolicy',
-            nameBase16: '546f6b656e58',
-          },
-          withAmount: jest.fn().mockReturnValue('inputToken'),
-        }
-      } as any;
-      const quoteToken = {
-        policyId: 'quotePolicy',
-        name: 'quoteToken',
-        decimals: 3,
-        token: {
-          asset: {
-            name: 'quoteToken',
-            policyId: 'quotePolicy',
-            nameBase16: '341f3b656e34',
-          },
-          withAmount: jest.fn().mockReturnValue('outputToken'),
-        }
-      } as any
       // Act
       const result = cardano['createTokens'](baseToken, quoteToken, BigNumber(1), true);
       // Assert
-      expect(result).toEqual(['inputToken', 'outputToken']);
+      expect(result).toEqual([1, 1]);
     });
   })
 
@@ -864,32 +854,6 @@ describe('Cardano', () => {
     beforeEach(() => {
       jest.clearAllMocks();
     });
-    const baseToken = {
-      policyId: 'basePolicy',
-      name: 'baseToken',
-      decimals: 6,
-      token: {
-        asset: {
-          name: 'baseToken',
-          policyId: 'basePolicy',
-          nameBase16: '546f6b656e58',
-        },
-        withAmount: jest.fn().mockReturnValue('inputToken'),
-      }
-    } as any;
-    const quoteToken = {
-      policyId: 'quotePolicy',
-      name: 'quoteToken',
-      decimals: 3,
-      token: {
-        asset: {
-          name: 'quoteToken',
-          policyId: 'quotePolicy',
-          nameBase16: '341f3b656e34',
-        },
-        withAmount: jest.fn().mockReturnValue('outputToken'),
-      }
-    } as any
     it('Should be defined', () => {
       expect(cardano['estimate']).toBeDefined();
     });
@@ -1145,6 +1109,105 @@ describe('Cardano', () => {
     it('should correctly convert amounts to raw amounts', () => {
       const result = cardano['toRaw'](BigNumber(1), 6);
       expect(result).toEqual('1000000');
+    })
+  })
+  describe('getPrice', () => {
+    it('Should be defined', () => {
+      expect(cardano['getPrice']).toBeDefined();
+    });
+    it('Should return the price when priceLimit is declared', async () => {
+      const result = await cardano['getPrice'](baseToken, quoteToken, true, BigNumber(1), '5');
+      expect(result).toEqual('price');
+      expect(Price.new).toHaveBeenCalledWith({
+        base: baseToken.token.asset, quote: quoteToken.token.asset, value: '5'
+      })
+    });
+    it('Should handle the case when any error occurs', async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        api: {
+          getOrderBook: jest.fn().mockRejectedValue(new Error('error'))
+        }
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      await expect(tempCardano['getPrice'](baseToken, quoteToken, true, BigNumber(1))).rejects.toThrow('Failed to fetch the estimate the price Error: error');
+    });
+    it('Should return the price when priceLimit is not declared', async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        api: {
+          getOrderBook: jest.fn().mockResolvedValue({}) // {} as order book
+        }
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      expect(await tempCardano['getPrice'](baseToken, quoteToken, true, BigNumber(1))).toEqual('priceWithNoPriceLimit');
+      expect(tempCardano['_dex'].api.getOrderBook).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].api.getOrderBook).toHaveBeenCalledWith({ base: baseToken.token.asset, quote: quoteToken.token.asset });
+      expect(Price.new).toHaveBeenCalledTimes(0);
+      expect(selectEstimatedPrice).toHaveBeenCalledTimes(1);
+      expect(selectEstimatedPrice).toHaveBeenCalledWith({ orderBook: {}, input: 1, priceType: 'average' });
+    })
+  })
+  describe('getPoolByPair', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    })
+    it('Should be defined', () => {
+      expect(cardano['getPoolByPair']).toBeDefined();
+    });
+    it('Should return the pool by pair', () => {
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([baseToken, quoteToken]);
+      jest.spyOn(utils, 'getNftBase16Names').mockReturnValue({ baseToQuote: 'ADA-SPLASH', quoteToBase: 'SPLASH-ADA' });
+      cardano['_splashPools']['ADA-SPLASH'] = ['pool'] as any; // Mock the pool
+      const result = cardano['getPoolByPair']('ada', 'splash');
+      expect(result).toEqual(['pool']);
+      expect(cardano['validateTokens']).toHaveBeenCalledTimes(1);
+      expect(cardano['validateTokens']).toHaveBeenCalledWith('ADA', 'SPLASH');
+      expect(utils.getNftBase16Names).toHaveBeenCalledTimes(1);
+      expect(utils.getNftBase16Names).toHaveBeenCalledWith('546f6b656e58', '341f3b656e34');
+    })
+    it('should throw an error when the pool is not found', () => {
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([baseToken, quoteToken]);
+      jest.spyOn(utils, 'getNftBase16Names').mockReturnValue({ baseToQuote: 'ADA-SPLASH', quoteToBase: 'SPLASH-ADA' });
+      expect(() => cardano['getPoolByPair']('ada', 'splash')).toThrow('pool not found');
+    })
+  })
+  describe('fetchLatestPoolByToken', () => {
+    it('Should be defined', () => {
+      expect(cardano['fetchLatestPoolByToken']).toBeDefined();
+    })
+    it('Should return the latest pool by token', async () => {
+      jest.spyOn(utils, 'getSplashPools').mockResolvedValue({})
+      jest.spyOn(cardano, 'getPoolByPair').mockReturnValue(['pool'] as any);
+      expect(await cardano['fetchLatestPoolByToken']('x', 'y')).toEqual(['pool']);
+      expect(utils.getSplashPools).toHaveBeenCalledTimes(1);
+      expect(cardano['getPoolByPair']).toHaveBeenCalledTimes(1);
+      expect(cardano['getPoolByPair']).toHaveBeenCalledWith('x', 'y');
+    })
+  })
+  describe('getTx', () => {
+    it('Should be defined', () => {
+      expect(cardano['getTx']).toBeDefined();
+    });
+    it('Should return the transaction data', async () => {
+      const result = await cardano['getTx']('txHash');
+      expect(result).toEqual('txData');
+    })
+  })
+  describe('getAddressTxs', () => {
+    it('Should be defined', () => {
+      expect(cardano['getAddressTxs']).toBeDefined();
+    });
+    it('Should return the address transactions', async () => {
+      const result = await cardano['getAddressTxs']('address');
+      expect(result).toEqual([]);
+    })
+  })
+  describe('getTxState', () => {
+    it('Should be defined', () => {
+      expect(cardano['getTxState']).toBeDefined();
+    })
+    it('Should return the transaction state', async () => {
+      const result = await cardano['getTxState']('txHash');
+      expect(result).toEqual('txManagerState');
     })
   })
 })
