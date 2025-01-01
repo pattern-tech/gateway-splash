@@ -6,6 +6,7 @@ import fse from 'fs-extra';
 import { BigNumber } from 'bignumber.js';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import axios from 'axios';
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
     transactions: {
@@ -149,17 +150,34 @@ describe('Cardano', () => {
     it('Should be defined', () => {
       expect(cardano['loadTokenMetadata']).toBeDefined();
     });
-    // it('should throw an error if _assetMap is an empty object', async () => {
-    //   // Arrange
-    //   jest.spyOn(console, 'error').mockReturnValue({} as any);
-    //   cardano['_assetMap'] = {};
-    //   // Act
-    //   await cardano['loadTokenMetadata']();
-    //   // Assert
-    //   expect(console.error).toHaveBeenCalledWith('try to re-init the object !');
-    // });
+    it('Should call getTokenMetadataWithBackoff method with correct parameters and update Cardano._tokenMetadata', async () => {
+      jest.spyOn(utils, 'getTokenMetadataWithBackoff').mockResolvedValue({ 'token': {} } as any);
+      cardano['_assetMap']['tokenName'] = [] as any;
+      expect(await cardano['loadTokenMetadata']()).toEqual(undefined);
+      expect(utils.getTokenMetadataWithBackoff).toHaveBeenCalledWith([[]], cardano['_node']);
+      // Cardano['_tokenMetadata'] = { 'token': {} } as any;
+    })
   });
 
+  describe('APIKeyValidation', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+    it('Should be defined', () => {
+      expect(Cardano.APIKeyValidation).toBeDefined()
+    })
+    it('Should not update the Cardano.maestroApiKey is api key is not valid', async () => {
+      Cardano['maestroApiKey'] = undefined;
+      jest.spyOn(axios, 'get').mockRejectedValue(new Error('invalid api key'))
+      await expect(Cardano.APIKeyValidation('invalid-api-key')).rejects.toThrow('API key is invalid or expired.')
+      expect(Cardano['maestroApiKey']).toBeUndefined();
+    })
+    it('Should update Cardano.maestroApiKey if api key is valid', async () => {
+      jest.spyOn(axios, 'get').mockResolvedValue({})
+      await Cardano.APIKeyValidation('valid-api-key')
+      expect(Cardano['maestroApiKey']).toEqual('valid-api-key')
+    })
+  })
   describe('getInstance', () => {
     it('Should be defined', () => {
       expect(Cardano.getInstance).toBeDefined();
