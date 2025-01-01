@@ -1,7 +1,7 @@
 import { CardanoWallet } from '../../../src/chains/cardano/wallet.service';
 import * as bip39 from 'bip39';
 import { Bip32PrivateKey } from '@stricahq/bip32ed25519/dist';
-import { RewardAddress, EnterpriseAddress } from '@stricahq/typhonjs/dist/address';
+import { RewardAddress, EnterpriseAddress, BaseAddress } from '@stricahq/typhonjs/dist/address';
 import { HashType, NetworkId, } from '@stricahq/typhonjs/dist/types';
 
 jest.mock('bip39', () => ({
@@ -16,9 +16,14 @@ jest.mock('@stricahq/bip32ed25519/dist', () => ({
 jest.mock('@stricahq/typhonjs/dist/address', () => ({
     RewardAddress: jest.fn().mockImplementation(() => ({
         getBech32: jest.fn().mockReturnValue('mock-stake-address'),
+        stakeCredential: 'mock-stake-credential',
     })),
     EnterpriseAddress: jest.fn().mockImplementation(() => ({
         getBech32: jest.fn().mockReturnValue('mock-enterprise-address'),
+        paymentCredential: 'mock-payment-credential',
+    })),
+    BaseAddress: jest.fn().mockImplementation(() => ({
+        getBech32: jest.fn().mockReturnValue('mock-base-address'),
     })),
 }));
 jest.mock('@stricahq/typhonjs/dist/types', () => ({
@@ -44,6 +49,9 @@ describe('CardanoWallet', () => {
     });
 
     describe('initialize', () => {
+        it('Should be defined', () => {
+            expect(wallet.initialize).toBeDefined();
+        })
         it('Should define rootKey and accountKey after initialization', async () => {
             const mockSeed = 'mock-seed';
             const mockRootKey = {
@@ -78,6 +86,9 @@ describe('CardanoWallet', () => {
     });
 
     describe('generateStakeAddress', () => {
+        it('Should be defined', () => {
+            expect(wallet.generateStakeAddress).toBeDefined()
+        })
         it('Should generate a stake address when accountKey is initialized', () => {
             const mockAccountKey = {
                 derive: jest.fn().mockReturnThis(),
@@ -103,6 +114,9 @@ describe('CardanoWallet', () => {
     });
 
     describe('generateEnterpriseAddress', () => {
+        it('Should be defined', () => {
+            expect(wallet.generateEnterpriseAddress).toBeDefined();
+        })
         it('Should generate an enterprise address when accountKey is initialized', () => {
             const mockAccountKey = {
                 derive: jest.fn().mockReturnThis(),
@@ -125,6 +139,67 @@ describe('CardanoWallet', () => {
 
         it('Should throw an error if wallet is not initialized', () => {
             expect(() => wallet.generateEnterpriseAddress()).toThrow('Wallet is not initialized.');
+        });
+    });
+    describe('generateBaseAddress', () => {
+        it('Should be defined', () => {
+            expect(wallet.generateBaseAddress).toBeDefined();
+        })
+        it('Should generate a base address when accountKey is initialized', () => {
+            const mockAccountKey = {
+                derive: jest.fn().mockReturnThis(),
+                toBip32PublicKey: jest.fn().mockReturnThis(),
+                toPublicKey: jest.fn().mockReturnThis(),
+                hash: jest.fn().mockReturnValue('mock-hash'),
+            };
+            (wallet as any).accountKey = mockAccountKey;
+
+            const baseAddress = wallet.generateBaseAddress();
+            expect(mockAccountKey.derive).toHaveBeenCalledTimes(4); // 2 for payment, 2 for stake
+            expect(EnterpriseAddress).toHaveBeenCalledWith(NetworkId.MAINNET, {
+                hash: 'mock-hash',
+                type: HashType.ADDRESS,
+            });
+            expect(RewardAddress).toHaveBeenCalledWith(NetworkId.MAINNET, {
+                hash: 'mock-hash',
+                type: HashType.ADDRESS,
+            });
+            expect(BaseAddress).toHaveBeenCalledWith(
+                NetworkId.MAINNET,
+                'mock-payment-credential',
+                'mock-stake-credential',
+            );
+            expect(baseAddress).toBe('mock-base-address');
+        });
+        it('Should throw an error if wallet is not initialized', () => {
+            expect(() => wallet.generateBaseAddress()).toThrow('Wallet is not initialized.');
+        });
+    });
+    describe('sign', () => {
+        it('Should be defined', () => {
+            expect(wallet.sing).toBeDefined()
+        })
+        it('Should sign a transaction when accountKey is initialized', () => {
+            const mockTransaction = Buffer.from('mock-transaction');
+            const mockAccountKey = {
+                derive: jest.fn().mockReturnThis(),
+                toPrivateKey: jest.fn().mockReturnThis(),
+                sign: jest.fn().mockReturnValue(Buffer.from('mock-signature')),
+            };
+            (wallet as any).accountKey = mockAccountKey;
+
+            const signature = wallet.sing(mockTransaction);
+            expect(mockAccountKey.derive).toHaveBeenCalledTimes(2);
+            expect(mockAccountKey.derive).toHaveBeenNthCalledWith(1, 0); // External chain (0)
+            expect(mockAccountKey.derive).toHaveBeenNthCalledWith(2, 0); // First address index
+            expect(mockAccountKey.toPrivateKey).toHaveBeenCalled();
+            expect(mockAccountKey.sign).toHaveBeenCalledWith(mockTransaction);
+            expect(signature).toEqual(Buffer.from('mock-signature'));
+        });
+        it('Should throw an error if wallet is not initialized', () => {
+            const mockTransaction = Buffer.from('mock-transaction');
+
+            expect(() => wallet.sing(mockTransaction)).toThrow('you must initialize the wallet first.');
         });
     });
 });
