@@ -7,6 +7,8 @@ import { BigNumber } from 'bignumber.js';
 import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.interface';
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import axios from 'axios';
+import LRUCache from 'lru-cache';
+
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
     transactions: {
@@ -30,6 +32,9 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
         ],
       }),
       txsByAddress: jest.fn().mockResolvedValue({ data: [] }),
+      addressBalance: jest.fn().mockResolvedValue({ data: { lovelace: 2 } }),
+      decodeAddress: jest.fn().mockRejectedValueOnce(new Error('test error'))
+        .mockResolvedValueOnce({ payment_cred: { bech32: 'bech32' } })
     },
     blocks: {
       blockInfo: jest.fn().mockResolvedValue({ data: { timestamp: '123456789' } })
@@ -182,6 +187,10 @@ describe('Cardano', () => {
     it('Should be defined', () => {
       expect(Cardano.getInstance).toBeDefined();
     });
+    it('Should throw new Error when maestroApiKey is not provided', () => {
+      jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
+      expect(() => Cardano.getInstance('mainnet', undefined)).toThrow('Failed to create Cardano instance: Error: Please connect to the gateway first.')
+    })
     it('should create a new Cardano instance if it does not exist in the cache', () => {
       // Arrange
       jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
@@ -604,6 +613,74 @@ describe('Cardano', () => {
       expect(result).toBe('30.00');
     });
   });
+
+  describe('getAdaBalance', () => {
+    it('Should be defined', () => {
+      expect(cardano.getAdaBalance).toBeDefined()
+    })
+    it('handle the case if any error occurs', async () => {
+      await expect(cardano.getAdaBalance('accountAddress')).rejects.toThrow('Error while fetching the accountAddress balance, Node: Error: test error')
+    })
+    it('Should get ADA balance', async () => {
+      await expect(cardano.getAdaBalance('accountAddress')).rejects.toThrow('Error while fetching the accountAddress balance, Node: Error: test error')
+      jest.spyOn(cardano as any, 'fromRaw').mockReturnValue('5')
+      const result = await cardano.getAdaBalance('accountAddress')
+      expect(result).toEqual('5');
+      expect(cardano['fromRaw']).toHaveBeenCalledTimes(1)
+      expect(cardano['fromRaw']).toHaveBeenCalledWith(BigNumber(2), 6)
+    })
+  })
+  describe('getBalance', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    })
+    it('Should be defined', () => {
+      expect(cardano.getBalance).toBeDefined();
+    })
+    it('should return zero balance and no assets for an empty UTXO list', async () => {
+      const result = cardano.getBalance([]);
+      expect(result).toEqual({ balance: BigNumber('0'), assets: {} });
+    })
+    it('should correctly calculate ADA balance', () => {
+      const utxos = [
+        {
+          assets: [
+            {
+              unit: 'LOVELACE',
+              amount: '1000000',
+            },
+          ],
+        },
+      ] as any;
+      const result = cardano.getBalance(utxos);
+      expect(result.balance).toEqual(BigNumber(1));
+    })
+    it('should correctly handle multiple assets', () => {
+      Cardano['_tokenMetadata'] = new LRUCache<string, Cardano>({
+        max: 100,
+      }) as any;
+      Cardano['_tokenMetadata'].set('DECODED(TESTTOKEN)', {
+        decimals: 2,
+      } as any)
+      const utxos = [
+        {
+          assets: [
+            {
+              unit: 'LOVELACE',
+              amount: '2000000',
+            },
+            {
+              unit: '0'.repeat(56) + 'testtoken',
+              amount: '500',
+            },
+          ],
+        },
+      ] as any;
+      const result = cardano.getBalance(utxos);
+      expect(result.balance).toEqual(BigNumber(2));
+      expect(result.assets).toEqual({ "DECODED(TESTTOKEN)": BigNumber(5) });
+    })
+  })
   describe('loadAssets', () => {
     it('Should be defined', () => {
       expect(cardano['loadAssets']).toBeDefined();
