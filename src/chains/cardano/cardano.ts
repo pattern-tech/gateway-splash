@@ -489,7 +489,9 @@ export class Cardano {
     assets: Record<string, BigNumber>;
   } {
     const assets: Record<string, BigNumber> = {};
-
+    if (utxos.length == 0) {
+      return { balance: BigNumber(0), assets };
+    }
     for (const utxo of utxos) {
       for (const asset of utxo.assets) {
         const { unit, amount } = asset;
@@ -500,13 +502,13 @@ export class Cardano {
         const tokenDecimals = isAda
           ? 6
           : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
-        if (assets[tokenName] === undefined) {
-          assets[tokenName] = BigNumber(0);
+        if (assets[tokenName.toUpperCase()] === undefined) {
+          assets[tokenName.toUpperCase()] = BigNumber(0);
         }
 
-        assets[tokenName] = BigNumber(
+        assets[tokenName.toUpperCase()] = BigNumber(
           this.fromRaw(
-            BigNumber(this.toRaw(assets[tokenName], tokenDecimals)).plus(
+            BigNumber(this.toRaw(assets[tokenName.toUpperCase()], tokenDecimals)).plus(
               BigNumber(amount),
             ),
             tokenDecimals,
@@ -515,7 +517,7 @@ export class Cardano {
       }
     }
 
-    let balance = assets['ADA'];
+    let balance = assets['ADA'] ?? BigNumber(0);
     delete assets['ADA'];
     return { balance, assets };
   }
