@@ -940,6 +940,68 @@ describe('Cardano', () => {
     });
   })
 
+  describe('estimateFee', () => {
+    it('Should be defined', () => {
+      expect(cardano['estimateFee']).toBeDefined();
+    })
+    it("should return the fee", async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        api: {
+          getSplashOperationConfig: jest.fn().mockResolvedValue({
+            operations: {
+              spotOrderV3: {
+                settings: {
+                  worstOrderStepCost: 3,
+                  executorFee: 4,
+                }
+              }
+            }
+          }),
+        },
+        explorer: {
+          getProtocolParams: jest.fn().mockResolvedValue({
+            minUTxOValue: 1,
+          }),
+        },
+        newTx: jest.fn().mockReturnValue({
+          spotOrder: jest.fn().mockReturnValue({
+            complete: jest.fn().mockResolvedValue({
+              wasm: {
+                body: jest.fn().mockReturnValue({
+                  fee: jest.fn().mockReturnValue(17)
+                })
+              }
+            })
+          })
+        })
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(tempCardano as any, 'fromRaw').mockReturnValue('1');
+      console.log('im here')
+      const result = await tempCardano['estimateFee']({} as any, { asset: 'asset' } as any)
+      console.log(result)
+      expect(result).toEqual('4.5')
+      expect(tempCardano['fromRaw']).toHaveBeenCalledTimes(3);
+      expect(tempCardano['_dex'].api.getSplashOperationConfig).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().spotOrder).toHaveBeenCalledTimes(1);
+      expect(tempCardano['_dex'].newTx().spotOrder).toHaveBeenCalledWith({
+        input: {},
+        outputAsset: { asset: 'asset' },
+      });
+      expect(tempCardano['_dex'].newTx().spotOrder().complete).toHaveBeenCalledTimes(1);
+    })
+    it('Should throw an error when getProtocolParams fails', async () => {
+      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
+        newTx: jest.fn().mockReturnValue(undefined),
+      } as any);
+      const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      await expect(
+        tempCardano['estimateFee']({} as any, { asset: 'asset' } as any)
+      ).rejects.toThrow("Failed to the estimate the fee TypeError: Cannot read properties of undefined (reading 'spotOrder')");
+    })
+  })
+
   describe('estimate', () => {
     beforeEach(() => {
       jest.clearAllMocks();

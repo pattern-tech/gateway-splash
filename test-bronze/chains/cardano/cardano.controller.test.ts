@@ -1,4 +1,3 @@
-// import { CardanoController } from '../../../src/chains/cardano/cardano.controller';
 import { Cardano } from '../../../src/chains/cardano/cardano';
 import { CardanoController } from '../../../src/chains/cardano/cardano.controller';
 import * as utils from '../../../src/chains/cardano/cardano.utils';
@@ -50,7 +49,6 @@ describe('CardanoController', () => {
       jest.spyOn(utils, 'getMaestroConfig').mockReturnValue({} as any);
       jest.spyOn(utils, 'getSplashInstance').mockReturnValue({} as any);
       jest.spyOn(cardano, 'ready').mockReturnValue(false);
-      // jest.spyOn(chain, 'init').mockResolvedValue();
       await CardanoController.balances(cardano, {
         address: 'address',
         privateKey: 'privateKey',
