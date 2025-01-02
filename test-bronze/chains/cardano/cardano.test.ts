@@ -160,7 +160,6 @@ describe('Cardano', () => {
       cardano['_assetMap']['tokenName'] = [] as any;
       expect(await cardano['loadTokenMetadata']()).toEqual(undefined);
       expect(utils.getTokenMetadataWithBackoff).toHaveBeenCalledWith([[]], cardano['_node']);
-      // Cardano['_tokenMetadata'] = { 'token': {} } as any;
     })
   });
 
@@ -184,16 +183,16 @@ describe('Cardano', () => {
     })
   })
   describe('getInstance', () => {
+    beforeEach(() => {
+      jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
+    })
     it('Should be defined', () => {
       expect(Cardano.getInstance).toBeDefined();
     });
     it('Should throw new Error when maestroApiKey is not provided', () => {
-      jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
       expect(() => Cardano.getInstance('mainnet', undefined)).toThrow('Failed to create Cardano instance: Error: Please connect to the gateway first.')
     })
     it('should create a new Cardano instance if it does not exist in the cache', () => {
-      // Arrange
-      jest.spyOn(config, 'getCardanoConfig').mockReturnValue(mockConfig);
       // Act
       const cardanoInstance = Cardano.getInstance(network, 'api-key');
       expect(config.getCardanoConfig).toHaveBeenCalledWith(network);
@@ -712,6 +711,10 @@ describe('Cardano', () => {
   describe('swap', () => {
     beforeEach(() => {
       cardano['_ready'] = true;
+      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
+        baseToken,
+        quoteToken
+      ]);
     })
     afterEach(() => {
       jest.clearAllMocks();
@@ -739,10 +742,6 @@ describe('Cardano', () => {
     });
     it('Should throw error if getTokenMetadata fails to return metadata for baseMetadata', async () => {
       // Arrange
-      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
-        baseToken,
-        quoteToken
-      ]);
       jest.spyOn(utils, 'getTokenMetadata').mockResolvedValueOnce(undefined);
       jest
         .spyOn(utils, 'getTokenMetadata')
@@ -754,10 +753,6 @@ describe('Cardano', () => {
       );
     });
     it('should throw error if getTokenMetadata fails to return metadata for quoteMetadata', async () => {
-      jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
-        baseToken,
-        quoteToken
-      ]);
       jest
         .spyOn(utils, 'getTokenMetadata')
         .mockResolvedValueOnce('validTokenMetadata' as any);
@@ -843,16 +838,16 @@ describe('Cardano', () => {
       // Arrange
       jest
         .spyOn(cardano, 'findToken')
-        .mockReturnValueOnce('someValidCardanoToken' as any);
+        .mockReturnValueOnce(baseToken);
       jest
         .spyOn(cardano, 'findToken')
-        .mockReturnValueOnce('someOtherValidCardanoToken' as any);
+        .mockReturnValueOnce(quoteToken);
       // Act
       const result = cardano['validateTokens']('baseToken', 'quoteToken');
       // Assert
       expect(result).toEqual([
-        'someValidCardanoToken',
-        'someOtherValidCardanoToken',
+        baseToken,
+        quoteToken,
       ]);
       expect(cardano['findToken']).toHaveBeenCalledTimes(2);
       expect(cardano['findToken']).toHaveBeenCalledWith('BASETOKEN');
@@ -990,31 +985,9 @@ describe('Cardano', () => {
     });
     it('Should return token if token is found', () => {
       cardano['_assetMap'] = {
-        'test': {
-          policyId: 'testPolicy',
-          name: 'test',
-          decimals: 6,
-          token: {
-            asset: {
-              name: 'test',
-              policyId: 'testPolicy',
-              nameBase16: '546f6b656e58',
-            },
-          }
-        } as any
+        'base': baseToken
       }
-      expect(cardano['findToken']('test')).toEqual({
-        policyId: 'testPolicy',
-        name: 'test',
-        decimals: 6,
-        token: {
-          asset: {
-            name: 'test',
-            policyId: 'testPolicy',
-            nameBase16: '546f6b656e58',
-          },
-        }
-      });
+      expect(cardano['findToken']('base')).toEqual(baseToken);
     });
     it('Should return undefined if token is not found', () => {
       expect(cardano['findToken']('invalidToken')).toBeUndefined();
@@ -1107,34 +1080,6 @@ describe('Cardano', () => {
   })
 
   describe('createPriceResponse', () => {
-    const baseToken = {
-      policyId: 'basePolicy',
-      name: 'baseToken',
-      symbol: 'baseToken',
-      decimals: 6,
-      token: {
-        asset: {
-          name: 'baseToken',
-          policyId: 'basePolicy',
-          nameBase16: '546f6b656e58',
-        },
-        withAmount: jest.fn().mockReturnValue(1),
-      }
-    } as any;
-    const quoteToken = {
-      policyId: 'quotePolicy',
-      name: 'quoteToken',
-      decimals: 3,
-      symbol: 'quoteToken',
-      token: {
-        asset: {
-          name: 'quoteToken',
-          policyId: 'quotePolicy',
-          nameBase16: '341f3b656e34',
-        },
-        withAmount: jest.fn().mockReturnValue(1),
-      }
-    } as any
     it('Should be defined', () => {
       expect(cardano['createPriceResponse']).toBeDefined();
     });
@@ -1166,11 +1111,7 @@ describe('Cardano', () => {
       expect(cardano['toRaw']).toHaveBeenCalledTimes(2);
       expect(cardano['toRaw']).toHaveBeenCalledWith(BigNumber(1), 6);
       expect(cardano['estimateFee']).toHaveBeenCalledTimes(1);
-      expect(cardano['estimateFee']).toHaveBeenCalledWith(1, {
-        name: 'quoteToken',
-        policyId: 'quotePolicy',
-        nameBase16: '341f3b656e34',
-      });
+      expect(cardano['estimateFee']).toHaveBeenCalledWith(1, quoteToken.token.asset);
       expect(cardano['calculateMinOutput']).toHaveBeenCalledTimes(1);
       expect(cardano['calculateMinOutput']).toHaveBeenCalledWith(BigNumber(1), BigNumber('0.005'), 5);
       expect(cardano['getPrice']).toHaveBeenCalledTimes(1);
