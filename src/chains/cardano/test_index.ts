@@ -35,7 +35,7 @@
 // import { Cardano } from './cardano';
 // import dotenv from 'dotenv';
 // dotenv.config({ path: '../../../.env' });
-// // import { BigNumber } from 'bignumber.js';
+// import { BigNumber } from 'bignumber.js';
 // // import { TradeSlippage } from './types/node.types';
 
 // // Simple test runner
@@ -198,7 +198,7 @@
 
 //   test('swap should perform a swap and return a TradeResponse', async () => {
     
-//     const cardano = Cardano.getInstance('Mainnet', 'test');
+//     const cardano = Cardano.getInstance('Mainnet', 'C0Ps6YWD2BB6UQiDH2zmulbkqR1jeeO9', 'test');
 //     await cardano.init();
 
 //     await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
