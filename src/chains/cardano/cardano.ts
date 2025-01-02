@@ -526,7 +526,9 @@ export class Cardano {
     assets: Record<string, BigNumber>;
   } {
     const assets: Record<string, BigNumber> = {};
-
+    if (utxos.length == 0) {
+      return { balance: BigNumber(0), assets };
+    }
     for (const utxo of utxos) {
       for (const asset of utxo.assets) {
         const { unit, amount } = asset;
@@ -552,7 +554,7 @@ export class Cardano {
       }
     }
 
-    let balance = assets['ADA'];
+    let balance = assets['ADA'] ?? BigNumber(0);
     delete assets['ADA'];
     return { balance, assets };
   }
