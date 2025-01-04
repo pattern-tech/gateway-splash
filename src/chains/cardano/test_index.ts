@@ -36,7 +36,7 @@
 // import dotenv from 'dotenv';
 // dotenv.config({ path: '../../../.env' });
 // import { BigNumber } from 'bignumber.js';
-// // import { TradeSlippage } from './types/node.types';
+// import { TradeSlippage } from './types/node.types';
 
 // // Simple test runner
 // async function runTests() {
@@ -124,7 +124,7 @@
 //   //   // const utxos = await cardano.getAddressUtxos(
 //   //   //   'addr1qxezkuean46f8xm9fq6w45n5y0mlqwcyggu8ejks8q2up9lq6k097swcyl0r4mp0uqw9a4rx692cczyy5zek6epsd0ds8rpg3v',
 //   //   // );
-    
+
 //   //   console.log(await cardano.getNetworkHeight());
 
 //   //   // console.log(utxos);
@@ -197,8 +197,11 @@
 //   // });
 
 //   test('swap should perform a swap and return a TradeResponse', async () => {
-    
-//     const cardano = Cardano.getInstance('Mainnet', 'C0Ps6YWD2BB6UQiDH2zmulbkqR1jeeO9', 'test');
+//     const cardano = Cardano.getInstance(
+//       'Mainnet',
+//       String(process.env.MAESTRO_API_KEY),
+//       'test',
+//     );
 //     await cardano.init();
 
 //     await cardano.activateWallet(String(process.env.DAEDLUS_KEY));
@@ -213,21 +216,32 @@
 //     Object.entries(balances.assets).forEach(([key, value]) => {
 //       console.log(`Key: ${key}, Value: ${value.toString()}`);
 //     });
-//     console.log("this is the tokne", cardano.findToken("rsERG"), "this is the other token", cardano.findToken("RSERG"));
-//     // console.log("this sis the estimated: ",
-//     //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
-//     //   // await cardano.estimate('ADA', 'rsERG', BigNumber(1), true, '5' as TradeSlippage),
-//     //   await cardano.estimate('rsERG', 'ADA', BigNumber(2), true, '5' as TradeSlippage),
-//     //   // await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
-//     //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
-//     //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
-
-//     // );
+//     console.log(
+//       'this is the tokne',
+//       cardano.findToken('rsERG'),
+//       'this is the other token',
+//       cardano.findToken('RSERG'),
+//     );
+//     console.log(
+//       'this sis the estimated: ',
+//       //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
+//       //   // await cardano.estimate('ADA', 'rsERG', BigNumber(1), true, '5' as TradeSlippage),
+//       await cardano.estimate(
+//         'rsERG',
+//         'ADA',
+//         BigNumber(2),
+//         false,
+//         '5' as TradeSlippage,
+//       ),
+//       // await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
+//       // await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
+//       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
+//     );
 
 //     // const result = await cardano.swap(
 //     //   'ADA',
 //     //   'RSERG',
-//     //   BigNumber(4),
+//     //   BigNumber(6),
 //     //   false,
 //     //   '1',
 //     //   "2"

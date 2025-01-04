@@ -192,7 +192,6 @@ export class Cardano {
         throw new Error('Please connect to the gateway first.');
       }
 
-
       const config = getCardanoConfig(network);
 
       Cardano._instances.set(
@@ -545,9 +544,9 @@ export class Cardano {
 
         assets[tokenName.toUpperCase()] = BigNumber(
           this.fromRaw(
-            BigNumber(this.toRaw(assets[tokenName.toUpperCase()], tokenDecimals)).plus(
-              BigNumber(amount),
-            ),
+            BigNumber(
+              this.toRaw(assets[tokenName.toUpperCase()], tokenDecimals),
+            ).plus(BigNumber(amount)),
             tokenDecimals,
           ),
         );
@@ -580,7 +579,7 @@ export class Cardano {
    * @param {string} baseToken - The base token name
    * @param {string} quoteToken - The quote token name
    * @param {BigNumber} amount - The amount to swap
-   * @param {boolean} sell - Either the swap is sell or buy position
+   * @param {boolean} buy - Either the swap is buy or sell position
    * @param {string} priceLimit - Either the swap is a limit order or a market price swap
    * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<TradeResponse>} The trade response
@@ -590,14 +589,13 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
-    sell: boolean = false,
+    buy: boolean = true,
     priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
-
     // don't touch
     if (priceLimit) {
-      console.log("")
+      console.log('');
     }
 
     if (!this._ready) {
@@ -647,7 +645,7 @@ export class Cardano {
       baseCardanoToken,
       quoteCardanoToken,
       amount,
-      sell,
+      buy,
     );
 
     const poolNftNamesBase16 = getNftBase16Names(
@@ -660,15 +658,15 @@ export class Cardano {
     const rawPrice = await this.getPrice(
       baseCardanoToken,
       quoteCardanoToken,
-      sell,
+      buy,
       amount,
     );
 
-    const decimals = sell
+    const decimals = buy
       ? (baseCardanoToken.decimals as number)
       : (quoteCardanoToken.decimals as number);
 
-    const outputDecimals = sell
+    const outputDecimals = buy
       ? (quoteCardanoToken.decimals as number)
       : (baseCardanoToken.decimals as number);
 
@@ -696,12 +694,12 @@ export class Cardano {
     // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout); // if using, use with delay, generally this line is not needed
 
     return this.createTradeResponse(
-      sell ? baseCardanoToken : quoteCardanoToken,
-      sell ? quoteCardanoToken : baseCardanoToken,
+      buy ? baseCardanoToken : quoteCardanoToken,
+      buy ? quoteCardanoToken : baseCardanoToken,
       amount,
       String(price),
       minOutput,
-      sell,
+      buy,
       estimatedFee,
       txHash,
     );
@@ -740,14 +738,14 @@ export class Cardano {
    * @param {CardanoToken} baseCardanoToken - The base token
    * @param {CardanoToken} quoteCardanoToken - The quote token
    * @param {BigNumber} amount - The amount to swap
-   * @param {boolean} sell - Whether this is a sell operation
+   * @param {boolean} buy - Whether this is a buy operation
    * @returns {[Currency, Currency]} An array containing the input and output Currency objects
    */
   private createTokens(
     baseCardanoToken: CardanoToken,
     quoteCardanoToken: CardanoToken,
     amount: BigNumber,
-    sell: boolean,
+    buy: boolean,
   ): [Currency, Currency] {
     const createToken = (cardanoToken: CardanoToken) =>
       cardanoToken.token.withAmount(
@@ -758,7 +756,7 @@ export class Cardano {
     const inputToken = createToken(baseCardanoToken);
     const outputToken = createToken(quoteCardanoToken);
 
-    return sell ? [inputToken, outputToken] : [outputToken, inputToken];
+    return buy ? [outputToken, inputToken] : [inputToken, outputToken];
   }
 
   /**
@@ -886,7 +884,7 @@ export class Cardano {
    * @param {string} baseToken - The base token symbol
    * @param {string} quoteToken - The quote token symbol
    * @param {BigNumber} amount - The amount to swap
-   * @param {boolean} sell - either selling the base token or buying it.
+   * @param {boolean} buy - either buying the base token or selling it.
    * @param {TradeSlippage} slippage - The slippage tolerance
    * @returns {Promise<PriceResponse>} The price estimate
    */
@@ -894,7 +892,7 @@ export class Cardano {
     baseToken: string,
     quoteToken: string,
     amount: BigNumber,
-    sell: boolean,
+    buy: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
@@ -935,7 +933,7 @@ export class Cardano {
       realBaseToken,
       realQuoteToken,
       amount,
-      sell,
+      buy,
       slippage,
     );
   }
@@ -988,7 +986,7 @@ export class Cardano {
    * @param {BigNumber} amount - The amount of tokens swapped
    * @param {string} price - The price at which the swap occurred
    * @param {BigNumber} minOutput - The minimum output amount for the swap
-   * @param {boolean} sell - Whether it's a sell operation (true) or buy operation (false)
+   * @param {boolean} buy - Whether it's a buy operation (true) or sell operation (false)
    * @param {number} estimatedFee - The estimated fee for the swap
    * @param {string} txHash - The transaction hash of the swap
    * @returns {Promise<TradeResponse>} A promise that resolves to the trade response
@@ -999,13 +997,13 @@ export class Cardano {
     amount: BigNumber,
     price: string,
     minOutput: BigNumber,
-    sell: boolean,
+    buy: boolean,
     estimatedFee: string,
     txHash: string,
   ): Promise<TradeResponse> {
-    const decimals = sell
-      ? (baseToken.decimals as number)
-      : (quoteToken.decimals as number);
+    const decimals = buy
+      ? (quoteToken.decimals as number)
+      : (baseToken.decimals as number);
 
     return {
       network: this.network,
@@ -1030,7 +1028,7 @@ export class Cardano {
    * @param {CardanoToken} baseToken - The base token of the trading pair
    * @param {CardanoToken} quoteToken - The quote token of the trading pair
    * @param {BigNumber} amount - The amount of tokens to swap
-   * @param {boolean} sell - Whether it's a sell operation (true) or buy operation (false)
+   * @param {boolean} buy - Whether it's a buy operation (true) or sell operation (false)
    * @param {String} [slippage] - Optional. The slippage tolerance for the swap
    * @param {string} [priceLimit] - Optional. The price limit for the swap
    * @param {string} [estimatedFee] - Optional. The estimated fee for the swap
@@ -1040,21 +1038,21 @@ export class Cardano {
     baseToken: CardanoToken,
     quoteToken: CardanoToken,
     amount: BigNumber,
-    sell: boolean,
+    buy: boolean,
     slippage?: String,
     priceLimit?: string,
     estimatedFee?: string,
   ): Promise<PriceResponse> {
-    const decimals = sell
-      ? (baseToken.decimals as number)
-      : (quoteToken.decimals as number);
-
-    const outputDecimals = sell
+    const decimals = buy
       ? (quoteToken.decimals as number)
       : (baseToken.decimals as number);
 
+    const outputDecimals = buy
+      ? (baseToken.decimals as number)
+      : (quoteToken.decimals as number);
+
     let rawPrice = (
-      await this.getPrice(baseToken, quoteToken, sell, amount, priceLimit)
+      await this.getPrice(baseToken, quoteToken, buy, amount, priceLimit)
     ).raw;
 
     let price = BigNumber(rawPrice)
@@ -1069,8 +1067,8 @@ export class Cardano {
     );
 
     if (!estimatedFee) {
-      const temp_base = sell ? baseToken : quoteToken;
-      const temp_quote = sell ? quoteToken : baseToken;
+      const temp_base = buy ? quoteToken : baseToken;
+      const temp_quote = buy ? baseToken : quoteToken;
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
@@ -1138,7 +1136,7 @@ export class Cardano {
    * Calculates the price
    * @param {CardanoToken} baseToken - The base token
    * @param {CardanoToken} quoteToken - The quote token
-   * @param {boolean} sell - Whether it's a sell operation
+   * @param {boolean} buy - Whether it's a buy operation
    * @param {BigNumber} amount - the amount to swap
    * @param {string} [priceLimit] - Optional price limit
    * @returns {Promise<Price>}
@@ -1146,7 +1144,7 @@ export class Cardano {
   private async getPrice(
     baseToken: CardanoToken,
     quoteToken: CardanoToken,
-    sell: boolean,
+    buy: boolean,
     amount: BigNumber,
     priceLimit?: string,
   ): Promise<Price> {
@@ -1173,7 +1171,7 @@ export class Cardano {
         quote: quoteToken.token.asset,
       });
 
-      let inputToken = sell ? baseToken : quoteToken;
+      let inputToken = buy ? quoteToken : baseToken;
 
       const input = inputToken.token.withAmount(
         BigInt(Math.trunc(parseFloat(this.toRaw(amount, inputToken.decimals)))),
