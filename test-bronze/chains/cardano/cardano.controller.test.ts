@@ -7,6 +7,16 @@ jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn(),
 }));
 
+/**
+ * Mocking @splashprotocol/sdk because it caused issues with Jest's ES module handling.
+The library is likely using ES module syntax, which Jest struggles to process properly 
+in CommonJS environments without additional configuration. By mocking the required 
+functions, we avoid loading the actual implementation and resolve the incompatibility
+issue while ensuring the test runs as expected.
+ */
+jest.mock('@splashprotocol/sdk', () => ({
+  selectEstimatedPrice: jest.fn().mockReturnValue('priceWithNoPriceLimit' as any),
+}));
 describe('CardanoController', () => {
   afterEach(() => {
     jest.clearAllMocks();
