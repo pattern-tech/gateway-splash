@@ -5,6 +5,7 @@ import {
   MaestroExplorer,
   Currency,
 } from '@splashprotocol/sdk';
+// import LRUCache from 'lru-cache';
 import { SplashPool } from '../../../src/chains/cardano/types/cardano.types';
 
 // SET ``` NODE_OPTIONS=--experimental-vm-modules ``` in package.json to run cardano.utils.test.ts tests
@@ -279,7 +280,21 @@ describe('getTokenMetadata', () => {
 
 describe('getTokenMetadataWithBackoff', () => {
   const mockedMaestroClient = new MaestroClient({} as any);
+  const mockTokenX = {
+    asset: {
+      name: 'TokenX',
+      policyId: 'policy123',
+      nameBase16: '546f6b656e58',
+    },
+  } as any;
 
+  const mockTokenY = {
+    asset: {
+      name: 'TokenY',
+      policyId: 'policy456',
+      nameBase16: '546f6b656e59',
+    },
+  };
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -290,21 +305,6 @@ describe('getTokenMetadataWithBackoff', () => {
     expect(typeof utils.getTokenMetadataWithBackoff).toBe('function');
   });
   it('should fetch metadata for all tokens successfully', async () => {
-    const mockTokenX = {
-      asset: {
-        name: 'TokenX',
-        policyId: 'policy123',
-        nameBase16: '546f6b656e58',
-      },
-    } as any;
-
-    const mockTokenY = {
-      asset: {
-        name: 'TokenY',
-        policyId: 'policy456',
-        nameBase16: '546f6b656e59',
-      },
-    };
     const tokens = [
       {
         token: mockTokenX,
@@ -382,6 +382,119 @@ describe('getTokenMetadataWithBackoff', () => {
       logo: '',
       name: 'TOKENY',
       ticker: 'TOKENY',
+      url: '',
+    });
+  });
+  it('should log error and retry fetching metadata on unexpected error', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    const tokens = [
+      {
+        token: mockTokenX,
+        policyId: 'policy123',
+        decimals: 6,
+        name: 'TokenX',
+        symbol: 'TokenX',
+        nameBase16: '546f6b656e58',
+      } as any,
+    ];
+
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo')
+      .mockRejectedValueOnce(new Error('Unexpected error'))
+      .mockResolvedValueOnce({
+        data: {
+          token_registry_metadata: {
+            decimals: 6,
+            description: '',
+            logo: '',
+            name: 'TokenX',
+            ticker: 'TokenX',
+            url: '',
+          },
+        },
+      } as any);
+
+    const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
+
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error fetching metadata for TokenX: Error: Unexpected error');
+    expect(consoleLogSpy).toHaveBeenCalledWith('trying again in 1 second ...');
+    expect(result.get('TOKENX')).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'TokenX',
+      ticker: 'TokenX',
+      url: '',
+    });
+  });
+  it('should log error and retry fetching metadata on code with code 429', async () => {
+    jest.spyOn(console, 'error').mockImplementation();
+    jest.spyOn(console, 'log').mockImplementation();
+    const tokens = [
+      {
+        token: mockTokenX,
+        policyId: 'policy123',
+        decimals: 6,
+        name: 'TokenX',
+        symbol: 'TokenX',
+        nameBase16: '546f6b656e58',
+      } as any,
+    ];
+
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo')
+      .mockRejectedValueOnce(new Error('code 429'))
+      .mockResolvedValueOnce({
+        data: {
+          token_registry_metadata: {
+            decimals: 6,
+            description: '',
+            logo: '',
+            name: 'TokenX',
+            ticker: 'TokenX',
+            url: '',
+          },
+        },
+      } as any);
+
+    const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
+
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledTimes(2);
+    expect(result.get('TOKENX')).toEqual({
+      decimals: 6,
+      description: '',
+      logo: '',
+      name: 'TokenX',
+      ticker: 'TokenX',
+      url: '',
+    });
+  });
+  it('should log error and retry fetching metadata on code with code 404', async () => {
+    jest.spyOn(console, 'error').mockImplementation();
+    jest.spyOn(console, 'log').mockImplementation();
+    const tokens = [
+      {
+        token: mockTokenX,
+        policyId: 'policy123',
+        decimals: 6,
+        name: 'TokenX',
+        symbol: 'TokenX',
+        nameBase16: '546f6b656e58',
+      } as any,
+    ];
+
+    jest.spyOn(mockedMaestroClient.assets, 'assetInfo')
+      .mockRejectedValueOnce(new Error('code 404'))
+
+    const result = await utils.getTokenMetadataWithBackoff(tokens, mockedMaestroClient);
+
+    expect(mockedMaestroClient.assets.assetInfo).toHaveBeenCalledTimes(1);
+    expect(result.get('TOKENX')).toEqual({
+      decimals: 1,
+      description: '',
+      logo: '',
+      name: 'TOKENX',
+      ticker: 'TOKENX',
       url: '',
     });
   });
