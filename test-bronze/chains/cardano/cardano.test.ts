@@ -1137,7 +1137,7 @@ describe('Cardano', () => {
       });
       expect(cardano['getBlockTimestamp']).toHaveBeenCalledTimes(1);
       expect(cardano['toRaw']).toHaveBeenCalledTimes(1);
-      expect(cardano['toRaw']).toHaveBeenCalledWith(BigNumber(1), 6);
+      expect(cardano['toRaw']).toHaveBeenCalledWith(BigNumber(1), 3);
     })
   })
 
@@ -1154,7 +1154,7 @@ describe('Cardano', () => {
       // estimatedFee is not provided in the arguments so it should be provided by the estimateFee function
       jest.spyOn(cardano, 'estimateFee').mockResolvedValue('3');
 
-      const result = await cardano['createPriceResponse'](baseToken, quoteToken, BigNumber(1), true, '5', '100');
+      const result = await cardano['createPriceResponse'](baseToken, quoteToken, BigNumber(1), false, '5', '100');
       expect(result).toEqual({
         base: 'baseToken',
         quote: 'quoteToken',
@@ -1177,7 +1177,7 @@ describe('Cardano', () => {
       expect(cardano['calculateMinOutput']).toHaveBeenCalledTimes(1);
       expect(cardano['calculateMinOutput']).toHaveBeenCalledWith(BigNumber(1), BigNumber('0.005'), 5);
       expect(cardano['getPrice']).toHaveBeenCalledTimes(1);
-      expect(cardano['getPrice']).toHaveBeenCalledWith(baseToken, quoteToken, true, BigNumber(1), '100');
+      expect(cardano['getPrice']).toHaveBeenCalledWith(baseToken, quoteToken, false, BigNumber(1), '100');
     })
   })
 
