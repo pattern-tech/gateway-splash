@@ -58,9 +58,9 @@ export function getSplashInstance(
 }
 
 /**
- * Generates the supported tokens from the loaded pools of the splash dex 
- * @param {Record<string, SplashPool[]>} splashPools - The fetched splash pools 
- * @returns {Record<string, CardanoToken>} - The loaded assets of the  fetched splash pools 
+ * Generates the supported tokens from the loaded pools of the splash dex
+ * @param {Record<string, SplashPool[]>} splashPools - The fetched splash pools
+ * @returns {Record<string, CardanoToken>} - The loaded assets of the  fetched splash pools
  */
 export function getAssetsFromPools(
   splashPools: Record<string, SplashPool[]>,
@@ -130,7 +130,7 @@ export function getAssetsFromPools(
 /**
  * Generates the base16 encoded name of the pools nft
  * @param {string} baseName16 - The base16 encoded name of the pools base token
- * @param {string} quoteName16 - The base16 encoded name of the pools quote token 
+ * @param {string} quoteName16 - The base16 encoded name of the pools quote token
  * @returns {poolNftNames} The base16 encoded name of the pools nft
  */
 export function getNftBase16Names(
@@ -144,18 +144,19 @@ export function getNftBase16Names(
 }
 
 /**
- * Fetches the metadata of a single token 
+ * Fetches the metadata of a single token
  * @param {string} policyId - The policy of the token
  * @param {string} base16Name -  The base16 encoded name of the token
- * @param {MaestroClient} maestroClient - The maestro api handler object 
- * @returns {Promise<TokenRegistryMetadata | null | undefined>} Returns either the fetched metadata or null/undefined if it's not found 
+ * @param {MaestroClient} maestroClient - The maestro api handler object
+ * @returns {Promise<TokenRegistryMetadata | null | undefined>} Returns either the fetched metadata or null/undefined if it's not found
  */
 export async function getTokenMetadata(
+  current_metadata: TokenRegistryMetadata | null,
   policyId: string,
   base16Name: string,
   maestroClient: MaestroClient,
 ): Promise<TokenRegistryMetadata | null | undefined> {
-  if ("414441" === base16Name) {
+  if ('414441' === base16Name) {
     return {
       decimals: 6,
       description: '',
@@ -165,15 +166,19 @@ export async function getTokenMetadata(
       url: '',
     };
   }
+
   try {
-    return (await maestroClient.assets.assetInfo(`${policyId}${base16Name}`))
+    if (current_metadata && current_metadata.decimals <=1) {
+      return current_metadata;
+    } else {
+      return (await maestroClient.assets.assetInfo(`${policyId}${base16Name}`))
       .data.token_registry_metadata;
+    }
   } catch (error) {
     // 429
     // 403
     return undefined;
   }
-
 }
 
 /**
@@ -216,7 +221,6 @@ export async function getTokenMetadataWithBackoff(
         ticker: token.name,
         url: '',
       };
-
       metadata.set(token.name.toUpperCase(), tokenMetadata);
     } catch (error) {
       if (
@@ -259,8 +263,8 @@ export async function getTokenMetadataWithBackoff(
 
 /**
  * Fetches the splash dex trading pools
- * @param {SplashInstance} splashClient - The splash dex api handler object  
- * @returns 
+ * @param {SplashInstance} splashClient - The splash dex api handler object
+ * @returns
  */
 export async function getSplashPools(
   splashClient: SplashInstance,
@@ -296,8 +300,8 @@ export function generateHash(networkString: string): string {
 }
 
 /**
- * Updates token metadata separately once is needed 
- * @param {string} token - The name of token 
+ * Updates token metadata separately once is needed
+ * @param {string} token - The name of token
  * @param {TokenRegistryMetadata} metadata - The existing metadata of the token to update
  * @returns {CardanoToken} The modified cardano token
  */

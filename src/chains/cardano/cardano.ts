@@ -440,12 +440,13 @@ export class Cardano {
 
       if (!cardanoToken) {
         throw new Error(
-          `Asset '${assetName}' not found in ${this._chain} Node!`,
+          `Asset '${assetName}' not found in ${this._chain} Node !`,
         );
       }
 
       // fetching the fresh metadata
       let tokenMetadata = await getTokenMetadata(
+        Cardano._tokenMetadata.get(assetName.toUpperCase()) ?? null,
         cardanoToken.policyId,
         cardanoToken.token.asset.nameBase16 != ''
           ? cardanoToken.token.asset.nameBase16
@@ -618,6 +619,7 @@ export class Cardano {
     );
     // fetching fresh token decimals
     let baseMetadata = await getTokenMetadata(
+      Cardano._tokenMetadata.get(baseToken) ?? null,
       baseCardanoToken.policyId,
       baseCardanoToken.token.asset.nameBase16 != ''
         ? baseCardanoToken.token.asset.nameBase16
@@ -625,6 +627,7 @@ export class Cardano {
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
+      Cardano._tokenMetadata.get(quoteToken) ?? null,
       quoteCardanoToken.policyId,
       quoteCardanoToken.token.asset.nameBase16 != ''
         ? quoteCardanoToken.token.asset.nameBase16
@@ -905,14 +908,20 @@ export class Cardano {
       quoteToken,
     );
 
+    let current_base_metadata = Cardano._tokenMetadata.get(baseToken);
+    let current_quote_metadata = Cardano._tokenMetadata.get(quoteToken);
+
     let baseMetadata = await getTokenMetadata(
+      current_base_metadata ?? null,
       realBaseToken.policyId,
       realBaseToken.token.asset.nameBase16 != ''
         ? realBaseToken.token.asset.nameBase16
         : stringToHex(realBaseToken.name),
       this._node,
     );
+
     let quoteMetadata = await getTokenMetadata(
+      current_quote_metadata ?? null,
       realQuoteToken.policyId,
       realQuoteToken.token.asset.nameBase16 != ''
         ? realQuoteToken.token.asset.nameBase16
@@ -924,6 +933,15 @@ export class Cardano {
       throw new Error(
         "Couldn't find the tokens metadata, try a verified token",
       );
+    }
+
+    // updating metadata
+    if (!current_base_metadata) {
+      Cardano._tokenMetadata.set(baseToken, baseMetadata);
+
+    }
+    if (!current_quote_metadata) {
+      Cardano._tokenMetadata.set(quoteToken, quoteMetadata);
     }
 
     realBaseToken = updateTokenMetadata(realBaseToken, baseMetadata);
