@@ -95,11 +95,10 @@ export class Cardano {
       getMaestroConfig(
         new_network,
         config.network.nodeURL,
-        Cardano.maestroApiKey,
       ),
     );
 
-    this._dex = getSplashInstance(new_network, Cardano.maestroApiKey);
+    this._dex = getSplashInstance(new_network);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -129,10 +128,21 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
-    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-      Object.values(this._assetMap),
-      this._node,
-    );
+    try {
+      Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+        Object.values(this._assetMap),
+        this._node,
+      );
+    } catch {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
+
+    }
+
     return;
   }
 
@@ -262,7 +272,17 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   public async getNetworkHeight(): Promise<number> {
-    return (await this._node.general.chainTip()).data.height;
+    try {
+      return (await this._node.general.chainTip()).data.height;
+    } catch {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
+      return 1;
+    }
   }
 
   /**
@@ -327,6 +347,12 @@ export class Cardano {
       ).data;
       return utxos;
     } catch (err) {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
       throw new Error(String(err));
     }
   }
@@ -510,6 +536,12 @@ export class Cardano {
         6,
       );
     } catch (error) {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
       throw new Error(
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
@@ -971,11 +1003,22 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   private async getBlockTimestamp(): Promise<number> {
-    const blockInfo = await this._node.blocks.blockInfo(
-      String(await this.getNetworkHeight()),
-    );
+    try {
+      const blockInfo = await this._node.blocks.blockInfo(
+        String(await this.getNetworkHeight()),
+      );
+      return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
+    } catch {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
+      return 1;
+    }
 
-    return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
+    // return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
   }
 
   /**
@@ -1253,7 +1296,18 @@ export class Cardano {
    * @returns {Promise<TransactionInfo | undefined>} The transaction details
    */
   public async getTx(txHash: string): Promise<TransactionInfo | undefined> {
-    return (await this._node.transactions.txInfo(txHash)).data;
+    try {
+      return (await this._node.transactions.txInfo(txHash)).data;
+    } catch {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
+      return
+    }
+    // return (await this._node.transactions.txInfo(txHash)).data;
   }
 
   /**
@@ -1280,6 +1334,18 @@ export class Cardano {
    * @returns {Promise<TxManagerState | undefined>} The transaction details
    */
   public async getTxState(txHash: string): Promise<TxManagerState | undefined> {
-    return await this._node.txManager.txManagerState(txHash);
+    try {
+      return await this._node.txManager.txManagerState(txHash);
+    }
+    catch {
+      this._node = new MaestroClient(
+        getMaestroConfig(
+          'Mainnet',
+          'https://mainnet.gomaestro-api.org/v1',
+        ),
+      );
+      return
+    }
+    // return await this._node.txManager.txManagerState(txHash);
   }
 }
