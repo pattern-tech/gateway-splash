@@ -238,19 +238,19 @@
 //       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
 //     );
 
-//     const result = await cardano.swap(
-//       'ADA',
-//       'RSERG',
-//       BigNumber(6),
-//       false,
-//       '1',
-//       "2"
-//     );
+//     // const result = await cardano.swap(
+//     //   'ADA',
+//     //   'RSERG',
+//     //   BigNumber(6),
+//     //   false,
+//     //   '1',
+//     //   "2"
+//     // );
 
 //     // // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");
 //     // // await cardano.cancel("38ff0dfeaacb0fdc8e2d2d9bcbaf79dda34f370126fa7b954fbd656d78fd168e");
 
-//     console.log('swap tx hash : ', result);
+//     // console.log('swap tx hash : ', result);
 
 //     // balances = cardano.getBalance(await cardano.getAddressUtxos(userAddress));
 

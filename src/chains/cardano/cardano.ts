@@ -159,6 +159,7 @@ export class Cardano {
       }
     }
   }
+  
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
