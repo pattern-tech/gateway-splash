@@ -140,7 +140,9 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      let address = await this._dex.api.getActiveAddress()
       this._dex = getSplashInstance("Mainnet");
+      await this.getAccountFromAddress(address);
     }
     return;
   }
