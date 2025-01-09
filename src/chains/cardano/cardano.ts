@@ -140,7 +140,6 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
-      this._dex = getSplashInstance('Mainnet');
       let address = await this._dex.api.getActiveAddress()
       this._dex = getSplashInstance("Mainnet");
       await this.getAccountFromAddress(address);
