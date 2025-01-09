@@ -140,9 +140,8 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
-
+      this._dex = getSplashInstance("Mainnet");
     }
-
     return;
   }
 
