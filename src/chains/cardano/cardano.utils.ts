@@ -26,18 +26,7 @@ let counter = -1;
 let splash_check = -1
 let MAESTRO_API_KEYS = process.env.MAESTRO_API_KEY!.split(', ')
 let len_env = MAESTRO_API_KEYS.length
-// [
-//   String(process.env.MAESTRO_API_KEY1),
-//   String(process.env.MAESTRO_API_KEY2),
-//   String(process.env.MAESTRO_API_KEY3),
-//   String(process.env.MAESTRO_API_KEY4),
-//   String(process.env.MAESTRO_API_KEY5),
-//   String(process.env.MAESTRO_API_KEY6),
-//   String(process.env.MAESTRO_API_KEY7),
-//   String(process.env.MAESTRO_API_KEY8),
-//   String(process.env.MAESTRO_API_KEY9),
-//   String(process.env.MAESTRO_API_KEY10),
-// ];
+
 /**
  * Creates a maestro node config object
  * @param {MaestroSupportedNetworks} network - The network name

@@ -915,7 +915,7 @@ export class Cardano {
 
       return total_fee.toString();
     } catch (error) {
-      this._dex = this._dex = getSplashInstance('Mainnet');
+      this._dex = getSplashInstance('Mainnet');
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
   }
