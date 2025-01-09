@@ -870,6 +870,7 @@ export class Cardano {
       );
       return cancelTxHash;
     } catch (error) {
+      this._dex = getSplashInstance('Mainnet');
       throw new Error(`${error}`);
     }
   }
@@ -914,6 +915,7 @@ export class Cardano {
 
       return total_fee.toString();
     } catch (error) {
+      this._dex = this._dex = getSplashInstance('Mainnet');
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
   }
@@ -1039,6 +1041,7 @@ export class Cardano {
 
       return txHash;
     } catch (err) {
+      this._dex = getSplashInstance('Mainnet')
       throw new Error(
         `Error while signing and submitting the transaction: \n ${err}`,
       );
