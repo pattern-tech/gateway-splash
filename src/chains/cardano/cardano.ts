@@ -140,6 +140,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
 
     }
 
@@ -281,6 +282,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       return 1;
     }
   }
@@ -353,6 +355,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       throw new Error(String(err));
     }
   }
@@ -542,6 +545,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       throw new Error(
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
@@ -1015,6 +1019,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       return 1;
     }
 
@@ -1305,6 +1310,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       return
     }
     // return (await this._node.transactions.txInfo(txHash)).data;
@@ -1344,6 +1350,7 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
+      this._dex = getSplashInstance('Mainnet');
       return
     }
     // return await this._node.txManager.txManagerState(txHash);
