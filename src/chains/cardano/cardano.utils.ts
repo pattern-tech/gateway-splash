@@ -23,7 +23,6 @@ import { enc } from 'crypto-js';
 
 dotenv.config({ path: '../../../.env' });
 let counter = -1;
-let splash_check = -1
 let MAESTRO_API_KEYS = process.env.MAESTRO_API_KEY!.split(', ')
 let len_env = MAESTRO_API_KEYS.length
 
@@ -56,14 +55,6 @@ export function getMaestroConfig(
 export function getSplashInstance(
   network: MaestroSupportedNetworks,
 ): SplashInstance {
-  splash_check += 1
-  if (!(counter == splash_check)) {
-    let splashNetwork: Network = network.toLowerCase() as Network;
-    return SplashBuilder(
-      SplashApi({ network: splashNetwork }),
-      MaestroExplorer.new(splashNetwork, MAESTRO_API_KEYS[counter + 1]),
-    );
-  }
   let splashNetwork: Network = network.toLowerCase() as Network;
   return SplashBuilder(
     SplashApi({ network: splashNetwork }),
