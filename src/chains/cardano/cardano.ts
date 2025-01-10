@@ -92,10 +92,7 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(
-        new_network,
-        config.network.nodeURL,
-      ),
+      getMaestroConfig(new_network, config.network.nodeURL),
     );
 
     this._dex = getSplashInstance(new_network);
@@ -135,14 +132,9 @@ export class Cardano {
       );
     } catch {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
-      this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
+      await this.updateSplash();
     }
     return;
   }
@@ -219,6 +211,7 @@ export class Cardano {
       let instance = Cardano._instances.get(instanceName) as Cardano;
 
       return instance;
+      
     } catch (error) {
       throw new Error(`Failed to create Cardano instance: ${error}`);
     }
@@ -277,12 +270,9 @@ export class Cardano {
       return (await this._node.general.chainTip()).data.height;
     } catch {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       return 1;
     }
   }
@@ -350,12 +340,9 @@ export class Cardano {
       return utxos;
     } catch (err) {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       throw new Error(String(err));
     }
   }
@@ -540,12 +527,9 @@ export class Cardano {
       );
     } catch (error) {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       throw new Error(
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
@@ -870,7 +854,7 @@ export class Cardano {
       );
       return cancelTxHash;
     } catch (error) {
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       throw new Error(`${error}`);
     }
   }
@@ -915,7 +899,7 @@ export class Cardano {
 
       return total_fee.toString();
     } catch (error) {
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
   }
@@ -976,7 +960,6 @@ export class Cardano {
     // updating metadata
     if (!current_base_metadata) {
       Cardano._tokenMetadata.set(baseToken, baseMetadata);
-
     }
     if (!current_quote_metadata) {
       Cardano._tokenMetadata.set(quoteToken, quoteMetadata);
@@ -1016,12 +999,9 @@ export class Cardano {
       return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
     } catch {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
+      await this.updateSplash();
       return 1;
     }
 
@@ -1041,7 +1021,7 @@ export class Cardano {
 
       return txHash;
     } catch (err) {
-      this._dex = getSplashInstance('Mainnet')
+      await this.updateSplash();
       throw new Error(
         `Error while signing and submitting the transaction: \n ${err}`,
       );
@@ -1308,13 +1288,10 @@ export class Cardano {
       return (await this._node.transactions.txInfo(txHash)).data;
     } catch {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
-      return
+      await this.updateSplash();
+      return;
     }
     // return (await this._node.transactions.txInfo(txHash)).data;
   }
@@ -1345,17 +1322,19 @@ export class Cardano {
   public async getTxState(txHash: string): Promise<TxManagerState | undefined> {
     try {
       return await this._node.txManager.txManagerState(txHash);
-    }
-    catch {
+    } catch {
       this._node = new MaestroClient(
-        getMaestroConfig(
-          'Mainnet',
-          'https://mainnet.gomaestro-api.org/v1',
-        ),
+        getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      this._dex = getSplashInstance('Mainnet');
-      return
+      await this.updateSplash();
+      return;
     }
     // return await this._node.txManager.txManagerState(txHash);
+  }
+
+  private async updateSplash() {
+    let address = await this._dex.api.getActiveAddress();
+    this._dex = getSplashInstance('Mainnet');
+    await this.getAccountFromAddress(address);
   }
 }
