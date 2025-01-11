@@ -173,7 +173,7 @@ export async function getTokenMetadata(
   }
 
   try {
-    if (current_metadata && current_metadata.decimals <= 1) {
+    if (current_metadata && current_metadata.decimals > 1) {
       return current_metadata;
     } else {
       return (await maestroClient.assets.assetInfo(`${policyId}${base16Name}`))
