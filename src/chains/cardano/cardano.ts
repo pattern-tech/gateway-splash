@@ -620,6 +620,10 @@ export class Cardano {
     priceLimit: string,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
+    // activating the wallet 
+    let address = await this._dex.api.getActiveAddress()
+    await this.getAccountFromAddress(address);
+    
     // don't touch
     if (priceLimit) {
       console.log('');
@@ -942,6 +946,10 @@ export class Cardano {
     buy: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
+    // activating the wallet 
+    let address = await this._dex.api.getActiveAddress()
+    await this.getAccountFromAddress(address);
+    
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
