@@ -899,6 +899,7 @@ export class Cardano {
     buy: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
+    
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
