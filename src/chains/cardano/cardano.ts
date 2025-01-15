@@ -1087,12 +1087,12 @@ export class Cardano {
     );
 
     if (!estimatedFee) {
-      const temp_base = buy ? quoteToken : baseToken;
-      const temp_quote = buy ? baseToken : quoteToken;
+      const temp_base = buy ? baseToken : quoteToken;
+      const temp_quote = !buy ? baseToken : quoteToken;
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
-          BigInt(Math.trunc(parseFloat(this.toRaw(amount, decimals)))),
+          BigInt(Math.trunc(parseFloat(this.toRaw(amount, outputDecimals)))),
         ),
         temp_quote.token.asset,
       );
