@@ -226,16 +226,16 @@ async function runTests() {
       'this sis the estimated: ',
       //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
       await cardano.estimate(
-        'ADA',
         'rsERG',
+        'ADA',
         BigNumber(2),
-        false,
+        true,
         '5' as TradeSlippage,
       ),
       await cardano.estimate(
         'rsERG',
-        'ADA', // 240 * 1.70 = 140  
-        BigNumber(240),
+        'ADA',
+        BigNumber(2),
         false,
         '5' as TradeSlippage,
       ),
@@ -247,7 +247,7 @@ async function runTests() {
     // const result = await cardano.swap(
     //   'ADA',
     //   'RSERG',
-    //   BigNumber(6),
+    //   BigNumber(8),
     //   false,
     //   '1',
     //   "2"
