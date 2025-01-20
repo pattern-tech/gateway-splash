@@ -162,6 +162,7 @@ export class Cardano {
       }
     }
   }
+  
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -696,12 +697,12 @@ export class Cardano {
     );
 
     const decimals = buy
-      ? (baseCardanoToken.decimals as number)
-      : (quoteCardanoToken.decimals as number);
-
-    const outputDecimals = buy
       ? (quoteCardanoToken.decimals as number)
       : (baseCardanoToken.decimals as number);
+
+    const outputDecimals = buy
+      ? (baseCardanoToken.decimals as number)
+      : (quoteCardanoToken.decimals as number);
 
     let price = BigNumber(rawPrice.raw)
       .multipliedBy(BigNumber(10).pow(outputDecimals))
@@ -888,6 +889,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
+      console.log("estimating the fee", input, outputAsset)
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -1156,8 +1158,9 @@ export class Cardano {
     );
 
     if (!estimatedFee) {
-      const temp_base = buy ? baseToken : quoteToken;
-      const temp_quote = !buy ? baseToken : quoteToken;
+      const temp_base = buy ?  quoteToken : baseToken;
+      const temp_quote = buy ? baseToken : quoteToken;
+      console.log("these are the base and quote", temp_base, temp_quote, buy)
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
