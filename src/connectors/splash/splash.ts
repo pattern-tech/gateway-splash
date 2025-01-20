@@ -84,7 +84,7 @@ export class Splash {
         req.base.replace("_", ""),
         req.quote.replace("_", ""),
         BigNumber(req.amount),
-        true,
+        false,
         req.allowedSlippage as TradeSlippage,
       );
     else if (req.side === 'BUY')
