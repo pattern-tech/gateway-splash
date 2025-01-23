@@ -322,6 +322,9 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     try {
+
+      await this.activateExistingWallet();
+
       let utxos: Array<UtxoWithSlot> = [];
       utxos = (
         await this._node.addresses.utxosByAddress(address, {
@@ -1322,6 +1325,9 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
+
+    await this.activateExistingWallet();
+
     return (
       await this._node.addresses.txsByAddress(address, {
         count: params?.limit || this.utxosLimit,
