@@ -278,9 +278,8 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       return 1;
     }
   }
@@ -350,9 +349,8 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       throw new Error(String(err));
     }
   }
@@ -578,9 +576,9 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       throw new Error(
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
@@ -666,8 +664,7 @@ export class Cardano {
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<TradeResponse> {
     // activating the wallet 
-    let address = await this._dex.api.getActiveAddress()
-    await this.getAccountFromAddress(address);
+    await this.activateExistingWallet();
     
     // don't touch
     if (priceLimit) {
@@ -917,9 +914,8 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       throw new Error(`${error}`);
     }
   }
@@ -974,9 +970,8 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
   }
@@ -1081,9 +1076,8 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       return 1;
     }
 
@@ -1109,9 +1103,8 @@ export class Cardano {
           'https://mainnet.gomaestro-api.org/v1',
         ),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       throw new Error(
         `Error while signing and submitting the transaction: \n ${err}`,
       );
@@ -1384,9 +1377,8 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       return
     }
     // return (await this._node.transactions.txInfo(txHash)).data;
@@ -1422,9 +1414,8 @@ export class Cardano {
       this._node = new MaestroClient(
         getMaestroConfig('Mainnet', 'https://mainnet.gomaestro-api.org/v1'),
       );
-      let address = await this._dex.api.getActiveAddress()
+      await this.activateExistingWallet();
       this._dex = getSplashInstance("Mainnet");
-      await this.getAccountFromAddress(address);
       return
     }
     // return await this._node.txManager.txManagerState(txHash);
