@@ -196,6 +196,7 @@ export async function addWallet(
       const account = await connection.getAccountFromMnemonic(req.privateKey);
       address = account.generateBaseAddress();
       encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
+      await connection.getAccountFromAddress(String(address));
     }
 
     if (address === undefined || encryptedPrivateKey === undefined) {
