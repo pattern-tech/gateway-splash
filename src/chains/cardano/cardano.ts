@@ -1212,7 +1212,7 @@ export class Cardano {
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
-          BigInt(Math.trunc(parseFloat(this.toRaw(amount, outputDecimals)))),
+          BigInt(Math.trunc(parseFloat(this.toRaw(amount, decimals)))),
         ),
         temp_quote.token.asset,
       );
