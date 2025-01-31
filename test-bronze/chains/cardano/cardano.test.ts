@@ -395,14 +395,22 @@ describe('Cardano', () => {
   });
 
   describe('activateWallet', () => {
+    beforeEach(() => {
+      jest.spyOn(ConfigManagerCertPassphrase, 'readPassphrase').mockReturnValue('passphrase');
+      jest.spyOn(fse, 'readFile').mockResolvedValue('file' as any);
+      jest.spyOn(fse, 'writeFile').mockResolvedValue;
+      jest.spyOn(cardano, 'encrypt').mockReturnValue('encryptedText');
+      jest.spyOn(fse, 'ensureDir').mockResolvedValue;
+      cardano['_dex'] = {
+        selectWallet: jest.fn(),
+        explorer: 'mockExplorer',
+        api: { getActiveAddress: jest.fn().mockResolvedValue('0xtest') },
+      } as any;  // Mock _dex object
+    })
     it('Should be defined', () => {
       expect(cardano.activateWallet).toBeDefined();
     });
     it('Should call selectWallet with the correct parameters', async () => {
-      cardano['_dex'] = {
-        selectWallet: jest.fn(),
-        explorer: 'mockExplorer',
-      } as any; // Mock _dex object
       // Act
       await cardano.activateWallet('fakeMnemonic');
       // Assert
@@ -410,24 +418,20 @@ describe('Cardano', () => {
       expect(cardano['_dex'].selectWallet).toHaveBeenCalledWith(
         expect.any(Function),
       );
+      expect(cardano['_dex'].api.getActiveAddress).toHaveBeenCalledTimes(1);
+      expect(cardano.encrypt).toHaveBeenCalledWith('fakeMnemonic', 'passphrase');
+      expect(fse.writeFile).toHaveBeenCalledWith('./conf/wallets/cardano/0xtest.json', 'encryptedText', 'utf8');
     });
     it('Should call fromSeed method from HotWallet with the correct parameters', async () => {
-      // Mock the necessary utils and the getSplashInstance return value
-      jest.spyOn(utils, 'getSplashInstance').mockReturnValue({
-        explorer: 'mockExplorer',
-        selectWallet: jest.fn(), // Mock the selectWallet method
-      } as any);
-      // Create a new instance of Cardano and mock _dex
-      const newCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
       jest.spyOn(HotWallet, 'fromSeed').mockResolvedValue({} as any);
-      const selectWalletMock = newCardano['_dex'].selectWallet as jest.Mock;
+      const selectWalletMock = cardano['_dex'].selectWallet as jest.Mock;
       selectWalletMock.mockImplementationOnce((callback) => {
         callback(); // This will call HotWallet.fromSeed
       });
       // Act
-      await newCardano.activateWallet('fakeMnemonic');
+      await cardano.activateWallet('fakeMnemonic');
       // Assert
-      expect(newCardano['_dex'].selectWallet).toHaveBeenCalledTimes(1);
+      expect(cardano['_dex'].selectWallet).toHaveBeenCalledTimes(1);
       expect(HotWallet.fromSeed).toHaveBeenCalledTimes(1);
       expect(HotWallet.fromSeed).toHaveBeenCalledWith(
         'fakeMnemonic',
@@ -477,6 +481,9 @@ describe('Cardano', () => {
   describe('getAccountFromAddress', () => {
     beforeEach(() => {
       jest.spyOn(fse, 'readFile').mockResolvedValue('file' as any);
+      jest
+        .spyOn(ConfigManagerCertPassphrase, 'readPassphrase')
+        .mockReturnValue('passphrase');
     });
     it('Should be defined', () => {
       expect(cardano.getAccountFromAddress).toBeDefined();
@@ -560,6 +567,9 @@ describe('Cardano', () => {
   });
 
   describe('getAssetBalance', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
     it('Should be defined', () => {
       expect(cardano.getAssetBalance).toBeDefined();
     });
@@ -576,7 +586,7 @@ describe('Cardano', () => {
       jest.spyOn(cardano, 'findToken').mockReturnValue(undefined);
       await expect(
         cardano.getAssetBalance('1', 'someInvalidToken'),
-      ).rejects.toThrow(`Asset 'someInvalidToken' not found in cardano Node!`);
+      ).rejects.toThrow(`Error fetching account assets from cardano Node: Error: Asset 'someInvalidToken' not found in cardano Node !`);
     });
     it('Should throw new Error when token metadata is not found', async () => {
       jest
@@ -589,6 +599,17 @@ describe('Cardano', () => {
       );
     });
     it('Should calculate token balance correctly', async () => {
+      const tokenMetadataMap = new Map();
+      tokenMetadataMap.set('VALIDTOKEN', { decimals: 2, ticker: 'VLT' });
+      Cardano['_tokenMetadata'] = tokenMetadataMap as any;
+      jest.spyOn(Cardano['_tokenMetadata'], 'get').mockReturnValue({
+        decimals: 2, ticker: 'VLT',
+        description: '',
+        logo: '',
+        name: '',
+        url: ''
+      });
+      // jest.spyOn(Cardano as any, '_tokenMetadata').mockReturnValue({} as any);
       const token: any = {
         token: { asset: { name: 'name' } },
         policyId: '123',
@@ -799,7 +820,7 @@ describe('Cardano', () => {
       expect(cardano['validateTokens']).toHaveBeenCalledTimes(1);
       expect(cardano['createTokens']).toHaveBeenCalledTimes(1);
       expect(cardano['createTokens']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), true);
-      expect(cardano['createTradeResponse']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), '0.005', BigNumber(1), true, '0.5', 'txHash')
+      expect(cardano['createTradeResponse']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), '5000', BigNumber(1), true, '0.5', 'txHash')
     })
   });
   describe('validateTokens', () => {
@@ -1033,8 +1054,8 @@ describe('Cardano', () => {
       expect(cardano['createPriceResponse']).toHaveBeenCalledWith(baseToken, quoteToken, BigNumber(1), true, '1');
       expect(cardano['validateTokens']).toHaveBeenCalledWith('BASETOKEN', 'QUOTETOKEN');
       expect(utils.getTokenMetadata).toHaveBeenCalledTimes(2);
-      expect(utils.getTokenMetadata).toHaveBeenCalledWith(baseToken.policyId, baseToken.token.asset.nameBase16, cardano['_node']);
-      expect(utils.getTokenMetadata).toHaveBeenCalledWith(quoteToken.policyId, quoteToken.token.asset.nameBase16, cardano['_node']);
+      expect(utils.getTokenMetadata).toHaveBeenCalledWith(null, baseToken.policyId, baseToken.token.asset.nameBase16, cardano['_node']);
+      expect(utils.getTokenMetadata).toHaveBeenCalledWith(null, quoteToken.policyId, quoteToken.token.asset.nameBase16, cardano['_node']);
       expect(utils.updateTokenMetadata).toHaveBeenCalledTimes(2);
       expect(utils.updateTokenMetadata).toHaveBeenCalledWith(baseToken, baseToken);
       expect(utils.updateTokenMetadata).toHaveBeenCalledWith(quoteToken, quoteToken);
@@ -1161,7 +1182,7 @@ describe('Cardano', () => {
         amount: '1',
         rawAmount: '5',
         expectedAmount: '1',
-        price: "0.005",
+        price: "200",
         network: 'mainnet',
         timestamp: 123456789,
         latency: 0,
