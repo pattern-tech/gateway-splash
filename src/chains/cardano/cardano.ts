@@ -51,6 +51,11 @@ import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 import axios from 'axios';
+import {
+  dropExtension,
+  getJsonFiles,
+  getLastPath,
+} from '../../services/wallet/wallet.controllers';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -159,6 +164,7 @@ export class Cardano {
       }
     }
   }
+
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -316,6 +322,9 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     try {
+
+      await this.activateExistingWallet();
+
       let utxos: Array<UtxoWithSlot> = [];
       utxos = (
         await this._node.addresses.utxosByAddress(address, {
@@ -355,6 +364,43 @@ export class Cardano {
     this._dex.selectWallet(
       async () => await HotWallet.fromSeed(mnemonic, this._dex.explorer),
     );
+
+    let activeWalletAddress = await this._dex.api.getActiveAddress();
+
+    let passphrase = ConfigManagerCertPassphrase.readPassphrase();
+
+    let encryptedMnemonic = this.encrypt(mnemonic, passphrase!);
+
+    const path = `${walletPath}/${this._chain}`;
+    await fse.ensureDir(path);
+    await fse.writeFile(
+      `${path}/${activeWalletAddress}.json`,
+      encryptedMnemonic,
+      'utf8',
+    );
+
+    return;
+  }
+
+  /**
+   * Selects an existing cip30 wallet into the splash instance
+   * @returns {Promise<void>}
+   */
+  private async activateExistingWallet(): Promise<void> {
+    const walletFiles = await getJsonFiles(`${walletPath}/${this._chain}`);
+
+    if (walletFiles.length > 1) {
+      throw new Error('can only work one wallet');
+    }
+
+    if (walletFiles.length == 0) {
+      throw new Error('no existing wallets found !');
+    }
+
+    const address = dropExtension(getLastPath(walletFiles[0]));
+
+    await this.getAccountFromAddress(address);
+
     return;
   }
 
@@ -432,6 +478,8 @@ export class Cardano {
     assetName: string,
   ): Promise<string> {
     try {
+      await this.activateExistingWallet();
+
       if (['LOVELACE', 'ADA'].includes(assetName.toUpperCase())) {
         throw new Error('use `getAdaBalance` function !');
       }
@@ -440,12 +488,13 @@ export class Cardano {
 
       if (!cardanoToken) {
         throw new Error(
-          `Asset '${assetName}' not found in ${this._chain} Node!`,
+          `Asset '${assetName}' not found in ${this._chain} Node !`,
         );
       }
 
       // fetching the fresh metadata
       let tokenMetadata = await getTokenMetadata(
+        Cardano._tokenMetadata.get(assetName.toUpperCase()) ?? null,
         cardanoToken.policyId,
         cardanoToken.token.asset.nameBase16 != ''
           ? cardanoToken.token.asset.nameBase16
@@ -609,6 +658,8 @@ export class Cardano {
       slippage = this.defaultSlippage;
     }
 
+    await this.activateExistingWallet();
+
     baseToken = baseToken.toUpperCase();
     quoteToken = quoteToken.toUpperCase();
 
@@ -618,6 +669,7 @@ export class Cardano {
     );
     // fetching fresh token decimals
     let baseMetadata = await getTokenMetadata(
+      Cardano._tokenMetadata.get(baseToken) ?? null,
       baseCardanoToken.policyId,
       baseCardanoToken.token.asset.nameBase16 != ''
         ? baseCardanoToken.token.asset.nameBase16
@@ -625,6 +677,7 @@ export class Cardano {
       this._node,
     );
     let quoteMetadata = await getTokenMetadata(
+      Cardano._tokenMetadata.get(quoteToken) ?? null,
       quoteCardanoToken.policyId,
       quoteCardanoToken.token.asset.nameBase16 != ''
         ? quoteCardanoToken.token.asset.nameBase16
@@ -663,12 +716,12 @@ export class Cardano {
     );
 
     const decimals = buy
-      ? (baseCardanoToken.decimals as number)
-      : (quoteCardanoToken.decimals as number);
-
-    const outputDecimals = buy
       ? (quoteCardanoToken.decimals as number)
       : (baseCardanoToken.decimals as number);
+
+    const outputDecimals = buy
+      ? (baseCardanoToken.decimals as number)
+      : (quoteCardanoToken.decimals as number);
 
     let price = BigNumber(rawPrice.raw)
       .multipliedBy(BigNumber(10).pow(outputDecimals))
@@ -846,6 +899,10 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
+      console.log('estimating the fee', input, outputAsset);
+
+      await this.activateExistingWallet();
+
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -898,6 +955,9 @@ export class Cardano {
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
+
+    await this.activateExistingWallet();
+
     baseToken = baseToken.toUpperCase();
     quoteToken = quoteToken.toUpperCase();
     let [realBaseToken, realQuoteToken] = this.validateTokens(
@@ -905,14 +965,20 @@ export class Cardano {
       quoteToken,
     );
 
+    let current_base_metadata = Cardano._tokenMetadata.get(baseToken);
+    let current_quote_metadata = Cardano._tokenMetadata.get(quoteToken);
+
     let baseMetadata = await getTokenMetadata(
+      current_base_metadata ?? null,
       realBaseToken.policyId,
       realBaseToken.token.asset.nameBase16 != ''
         ? realBaseToken.token.asset.nameBase16
         : stringToHex(realBaseToken.name),
       this._node,
     );
+
     let quoteMetadata = await getTokenMetadata(
+      current_quote_metadata ?? null,
       realQuoteToken.policyId,
       realQuoteToken.token.asset.nameBase16 != ''
         ? realQuoteToken.token.asset.nameBase16
@@ -924,6 +990,14 @@ export class Cardano {
       throw new Error(
         "Couldn't find the tokens metadata, try a verified token",
       );
+    }
+
+    // updating metadata
+    if (!current_base_metadata) {
+      Cardano._tokenMetadata.set(baseToken, baseMetadata);
+    }
+    if (!current_quote_metadata) {
+      Cardano._tokenMetadata.set(quoteToken, quoteMetadata);
     }
 
     realBaseToken = updateTokenMetadata(realBaseToken, baseMetadata);
@@ -1069,6 +1143,7 @@ export class Cardano {
     if (!estimatedFee) {
       const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
+      console.log('these are the base and quote', temp_base, temp_quote, buy);
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
@@ -1084,7 +1159,7 @@ export class Cardano {
       amount: String(amount),
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
-      price,
+      price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
       network: this.network,
       timestamp: await this.getBlockTimestamp(),
       latency: 0,
@@ -1149,6 +1224,9 @@ export class Cardano {
     priceLimit?: string,
   ): Promise<Price> {
     try {
+      
+      await this.activateExistingWallet();
+
       if (priceLimit) {
         return Price.new({
           base: baseToken.token.asset,
@@ -1247,6 +1325,9 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
+
+    await this.activateExistingWallet();
+
     return (
       await this._node.addresses.txsByAddress(address, {
         count: params?.limit || this.utxosLimit,
