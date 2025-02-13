@@ -36,7 +36,7 @@
 // import dotenv from 'dotenv';
 // dotenv.config({ path: '../../../.env' });
 // import { BigNumber } from 'bignumber.js';
-// import { TradeSlippage } from './types/node.types';
+// // import { TradeSlippage } from './types/node.types';
 
 // // Simple test runner
 // async function runTests() {
@@ -225,38 +225,38 @@
 //     console.log(
 //       'this sis the estimated: ',
 //       //   // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
-//       await cardano.estimate(
-//         'rsERG',
-//         'ADA',
-//         BigNumber(2),
-//         true,
-//         '5' as TradeSlippage,
-//       ),
-//       await cardano.estimate(
-//         'rsERG',
-//         'ADA',
-//         BigNumber(2),
-//         false,
-//         '5' as TradeSlippage,
-//       ),
+//       // await cardano.estimate(
+//       //   'rsERG',
+//       //   'ADA',/*  */
+//       //   BigNumber(2),
+//       //   true,
+//       //   '5' as TradeSlippage,
+//       // ),
+//       // await cardano.estimate(
+//       //   'rsERG',
+//       //   'ADA',
+//       //   BigNumber(2),
+//       //   false,
+//       //   '5' as TradeSlippage,
+//       // ),
 //       // await cardano.estimate('ADA', 'USDC', BigNumber(1), false, '0/1' as TradeSlippage),
 //       // await cardano.estimate('USDC', 'ADA', BigNumber(1), false, '0/1' as TradeSlippage),
 //       // await cardano.estimate('USDC', 'ADA', BigNumber(1), true, '0/1' as TradeSlippage),
 //     );
-//     await cardano.cancel("2a5a9871dbde29e86979d52b65a2ff4ab873898ad0e29b437eb9aaf50be84618")
-//     // const result = await cardano.swap(
-//     //   'ADA',
-//     //   'RSERG',
-//     //   BigNumber(8),
-//     //   false,
-//     //   '1',
-//     //   "2"
-//     // );
+
+//     const result = await cardano.swap(
+//       'ADA',
+//       'RSERG',
+//       BigNumber(5),
+//       false,
+//       '1',
+//       "2"
+//     );
 
 //     // // await cardano.cancel("4cea90770dd1838d9bd668c7e438a009043141266980ed9b051d9da4e0bd2a04");
 //     // // await cardano.cancel("38ff0dfeaacb0fdc8e2d2d9bcbaf79dda34f370126fa7b954fbd656d78fd168e");
 
-//     // console.log('swap tx hash : ', result);
+//     console.log('swap tx hash : ', result);
 
 //     // balances = cardano.getBalance(await cardano.getAddressUtxos(userAddress));
 

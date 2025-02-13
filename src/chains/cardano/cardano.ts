@@ -51,6 +51,11 @@ import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 import axios from 'axios';
+import {
+  dropExtension,
+  getJsonFiles,
+  getLastPath,
+} from '../../services/wallet/wallet.controllers';
 import { CancelRequest, CancelResponse } from '../chain.requests';
 
 /**
@@ -323,6 +328,9 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     try {
+
+      await this.activateExistingWallet();
+
       let utxos: Array<UtxoWithSlot> = [];
       utxos = (
         await this._node.addresses.utxosByAddress(address, {
@@ -362,6 +370,43 @@ export class Cardano {
     this._dex.selectWallet(
       async () => await HotWallet.fromSeed(mnemonic, this._dex.explorer),
     );
+
+    let activeWalletAddress = await this._dex.api.getActiveAddress();
+
+    let passphrase = ConfigManagerCertPassphrase.readPassphrase();
+
+    let encryptedMnemonic = this.encrypt(mnemonic, passphrase!);
+
+    const path = `${walletPath}/${this._chain}`;
+    await fse.ensureDir(path);
+    await fse.writeFile(
+      `${path}/${activeWalletAddress}.json`,
+      encryptedMnemonic,
+      'utf8',
+    );
+
+    return;
+  }
+
+  /**
+   * Selects an existing cip30 wallet into the splash instance
+   * @returns {Promise<void>}
+   */
+  private async activateExistingWallet(): Promise<void> {
+    const walletFiles = await getJsonFiles(`${walletPath}/${this._chain}`);
+
+    if (walletFiles.length > 1) {
+      throw new Error('can only work one wallet');
+    }
+
+    if (walletFiles.length == 0) {
+      throw new Error('no existing wallets found !');
+    }
+
+    const address = dropExtension(getLastPath(walletFiles[0]));
+
+    await this.getAccountFromAddress(address);
+
     return;
   }
 
@@ -439,6 +484,8 @@ export class Cardano {
     assetName: string,
   ): Promise<string> {
     try {
+      await this.activateExistingWallet();
+
       if (['LOVELACE', 'ADA'].includes(assetName.toUpperCase())) {
         throw new Error('use `getAdaBalance` function !');
       }
@@ -617,8 +664,7 @@ export class Cardano {
       slippage = this.defaultSlippage;
     }
 
-    let address = await this._dex.api.getActiveAddress();
-    await this.getAccountFromAddress(address);
+    await this.activateExistingWallet();
 
     baseToken = baseToken.toUpperCase();
     quoteToken = quoteToken.toUpperCase();
@@ -865,6 +911,9 @@ export class Cardano {
   ): Promise<string> {
     try {
       console.log('estimating the fee', input, outputAsset);
+
+      await this.activateExistingWallet();
+
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -914,12 +963,12 @@ export class Cardano {
     buy: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
-    let address = await this._dex.api.getActiveAddress();
-    await this.getAccountFromAddress(address);
-
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
+
+    await this.activateExistingWallet();
+
     baseToken = baseToken.toUpperCase();
     quoteToken = quoteToken.toUpperCase();
     let [realBaseToken, realQuoteToken] = this.validateTokens(
@@ -1104,7 +1153,9 @@ export class Cardano {
 
     if (!estimatedFee) {
       const temp_base = buy ? quoteToken : baseToken;
+      const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
+      console.log('these are the base and quote', temp_base, temp_quote, buy);
       console.log('these are the base and quote', temp_base, temp_quote, buy);
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
@@ -1121,6 +1172,7 @@ export class Cardano {
       amount: String(amount),
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
+      price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
       price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
       network: this.network,
       timestamp: await this.getBlockTimestamp(),
@@ -1186,6 +1238,9 @@ export class Cardano {
     priceLimit?: string,
   ): Promise<Price> {
     try {
+      
+      await this.activateExistingWallet();
+
       if (priceLimit) {
         return Price.new({
           base: baseToken.token.asset,
@@ -1284,6 +1339,9 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
+
+    await this.activateExistingWallet();
+
     return (
       await this._node.addresses.txsByAddress(address, {
         count: params?.limit || this.utxosLimit,
