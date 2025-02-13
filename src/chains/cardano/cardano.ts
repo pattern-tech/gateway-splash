@@ -1153,7 +1153,6 @@ export class Cardano {
 
     if (!estimatedFee) {
       const temp_base = buy ? quoteToken : baseToken;
-      const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
       console.log('these are the base and quote', temp_base, temp_quote, buy);
       console.log('these are the base and quote', temp_base, temp_quote, buy);
