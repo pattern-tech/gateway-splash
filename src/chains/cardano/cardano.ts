@@ -1172,7 +1172,6 @@ export class Cardano {
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
       price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
-      price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
       network: this.network,
       timestamp: await this.getBlockTimestamp(),
       latency: 0,
