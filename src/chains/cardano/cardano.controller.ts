@@ -2,11 +2,16 @@ import {
   BalancesRequest,
   PollRequest,
   PollResponse,
-  AssetsResponse
+  AssetsResponse,
 } from './interfaces/cardano.interface';
-import { AllowancesRequest, AllowancesResponse } from '../chain.requests';
+import {
+  AllowancesRequest,
+  AllowancesResponse,
+  CancelRequest,
+  CancelResponse,
+} from '../chain.requests';
 import { BalanceResponse, TokensRequest } from '../../network/network.requests';
-import {Cardano} from "./cardano";
+import { Cardano } from './cardano';
 
 export class CardanoController {
   static async balances(
@@ -21,7 +26,7 @@ export class CardanoController {
     const { balance, assets } = chain.getBalance(utxos);
     const new_assets: Record<string, string> = {};
     Object.keys(assets).forEach((value) => {
-      new_assets[value] = assets[value].toString()
+      new_assets[value] = assets[value].toString();
     });
     return {
       network: String(chain.network),
@@ -40,17 +45,16 @@ export class CardanoController {
     }
 
     return {
-      assets: cardano.storedAssetList.map((asset)=>{
-        const temp = Object(asset)
+      assets: cardano.storedAssetList.map((asset) => {
+        const temp = Object(asset);
         return {
           decimals: temp.decimals,
           name: temp.name,
-          symbol: temp.name
-        }
+          symbol: temp.name,
+        };
       }),
     };
   }
-
 
   static async allowances(
     cardano: Cardano,
@@ -64,7 +68,7 @@ export class CardanoController {
     const { balance, assets } = cardano.getBalance(utxos);
     const new_assets: Record<string, string> = {};
     Object.keys(assets).forEach((value) => {
-      new_assets[value] = assets[value].toString()
+      new_assets[value] = assets[value].toString();
     });
     return {
       network: String(cardano.network),
@@ -78,12 +82,24 @@ export class CardanoController {
     };
   }
 
+  static async cancel(
+    cardano: Cardano,
+    request: CancelRequest,
+  ): Promise<CancelResponse | string> {
+    if (!cardano.ready()) {
+      await cardano.init();
+    }
+    return await cardano.cancel(request);
+  }
+
   static async poll(cardano: Cardano, req: PollRequest): Promise<PollResponse> {
     if (!cardano.ready()) {
       await cardano.init();
     }
     const tx = await cardano.getTx(req.txHash);
-    if (!tx)
+    const oor = await cardano.checkSatisfaction(req.txHash);
+
+    if (!tx || oor )
       return {
         id: '',
         inputs: [],

@@ -51,6 +51,7 @@ import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
 import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
 import axios from 'axios';
+import { CancelRequest, CancelResponse } from '../chain.requests';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -159,7 +160,7 @@ export class Cardano {
       }
     }
   }
-  
+
   /**
    * Gets or creates a Cardano instance
    * @param {MaestroSupportedNetworksNetwork} network - The supported maestro network to connect to
@@ -239,7 +240,12 @@ export class Cardano {
     hash: string,
     index: number = 0,
   ): Promise<boolean> {
-    return await isOOROrder(`${hash}:${index}`, this._dex);
+    try {
+      let res = await isOOROrder(`${hash}:${index}`, this._dex);
+      return res;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -611,6 +617,9 @@ export class Cardano {
       slippage = this.defaultSlippage;
     }
 
+    let address = await this._dex.api.getActiveAddress();
+    await this.getAccountFromAddress(address);
+
     baseToken = baseToken.toUpperCase();
     quoteToken = quoteToken.toUpperCase();
 
@@ -694,8 +703,6 @@ export class Cardano {
     );
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
-
-    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout); // if using, use with delay, generally this line is not needed
 
     return this.createTradeResponse(
       buy ? baseCardanoToken : quoteCardanoToken,
@@ -817,23 +824,30 @@ export class Cardano {
    * @param {number} index - The index which the order is placed in the tx objects
    * @returns {Promise<string>} cancellation tx hash
    */
-  public async cancel(txHash: string, index: number = 0): Promise<string> {
+  public async cancel(params: CancelRequest): Promise<CancelResponse> {
     try {
-      console.log(`order failure, cancelling ${txHash}:${index}`);
+      console.log(
+        `order failure, cancelling ${params.address}:${params.nonce}`,
+      );
       let cancelTxHash = await this._dex.explorer.submitTx(
         (
           await (
             await this._dex
               .newTx()
               .cancelOperation({
-                txHash,
-                index,
+                txHash: params.address,
+                index: params.nonce,
               })
               .complete()
           ).sign()
         ).cbor,
       );
-      return cancelTxHash;
+      return {
+        network: 'mainnet',
+        timestamp: await this.getBlockTimestamp(),
+        latency: 1,
+        txHash: cancelTxHash,
+      };
     } catch (error) {
       throw new Error(`${error}`);
     }
@@ -850,7 +864,7 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
-      console.log("estimating the fee", input, outputAsset)
+      console.log('estimating the fee', input, outputAsset);
       const tx = await this._dex
         .newTx()
         .spotOrder({
@@ -900,7 +914,9 @@ export class Cardano {
     buy: boolean,
     slippage: TradeSlippage = this.defaultSlippage,
   ): Promise<PriceResponse> {
-    
+    let address = await this._dex.api.getActiveAddress();
+    await this.getAccountFromAddress(address);
+
     if (!['1', '2', '5', '10', '15', '25'].includes(slippage)) {
       slippage = this.defaultSlippage;
     }
@@ -941,7 +957,6 @@ export class Cardano {
     // updating metadata
     if (!current_base_metadata) {
       Cardano._tokenMetadata.set(baseToken, baseMetadata);
-
     }
     if (!current_quote_metadata) {
       Cardano._tokenMetadata.set(quoteToken, quoteMetadata);
@@ -1088,9 +1103,9 @@ export class Cardano {
     );
 
     if (!estimatedFee) {
-      const temp_base = buy ?  quoteToken : baseToken;
+      const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
-      console.log("these are the base and quote", temp_base, temp_quote, buy)
+      console.log('these are the base and quote', temp_base, temp_quote, buy);
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
@@ -1106,7 +1121,7 @@ export class Cardano {
       amount: String(amount),
       rawAmount: this.toRaw(amount, decimals),
       expectedAmount: minOutput.toString(),
-      price : buy ? price : (BigNumber(1).dividedBy(BigNumber(price))).toString(),
+      price: buy ? price : BigNumber(1).dividedBy(BigNumber(price)).toString(),
       network: this.network,
       timestamp: await this.getBlockTimestamp(),
       latency: 0,
