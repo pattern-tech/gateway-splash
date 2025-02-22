@@ -314,9 +314,12 @@ describe('Cardano', () => {
   });
 
   describe('getAddressUtxos', () => {
-    it('Should be defined', () => {
-      expect(cardano.getAddressUtxos).toBeDefined();
-    });
+    beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    }),
+      it('Should be defined', () => {
+        expect(cardano.getAddressUtxos).toBeDefined();
+      });
     it('should return utxos successfully when the node responds correctly', async () => {
       const result = await cardano.getAddressUtxos('mockAddress');
 
@@ -568,6 +571,9 @@ describe('Cardano', () => {
 
   describe('getAssetBalance', () => {
     beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    })
+    afterEach(() => {
       jest.clearAllMocks();
     });
     it('Should be defined', () => {
@@ -731,6 +737,7 @@ describe('Cardano', () => {
   });
   describe('swap', () => {
     beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
       cardano['_ready'] = true;
       jest.spyOn(cardano as any, 'validateTokens').mockReturnValue([
         baseToken,
@@ -931,7 +938,11 @@ describe('Cardano', () => {
       expect(cardano['cancel']).toBeDefined();
     });
     it('Should handle error when any error occurs', async () => {
-      await expect(cardano['cancel']('txHash', 1)).rejects.toThrow(`TypeError: Cannot read properties of undefined (reading 'submitTx')`);
+      await expect(cardano['cancel']({
+        address: 'txHash', nonce: 1,
+        chain: '',
+        network: ''
+      })).rejects.toThrow(`TypeError: Cannot read properties of undefined (reading 'submitTx')`);
     });
     it('Should call "newTx", "cancelOperation", "complete" and "submitTx"', async () => {
       jest.spyOn(console, 'log').mockReturnValue({} as any);
@@ -952,7 +963,11 @@ describe('Cardano', () => {
         })
       } as any);
       const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
-      await tempCardano['cancel']('txHash', 1)
+      await tempCardano['cancel']({
+        address: 'txHash', nonce: 1,
+        chain: '',
+        network: ''
+      })
       expect(tempCardano['_dex'].newTx).toHaveBeenCalledTimes(1);
       expect(tempCardano['_dex'].newTx().cancelOperation).toHaveBeenCalledTimes(1);
       expect(tempCardano['_dex'].newTx().cancelOperation).toHaveBeenCalledWith({ txHash: "txHash", index: 1 });
@@ -962,6 +977,9 @@ describe('Cardano', () => {
   })
 
   describe('estimateFee', () => {
+    beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    })
     it('Should be defined', () => {
       expect(cardano['estimateFee']).toBeDefined();
     })
@@ -1025,6 +1043,9 @@ describe('Cardano', () => {
 
   describe('estimate', () => {
     beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    })
+    afterEach(() => {
       jest.clearAllMocks();
     });
     it('Should be defined', () => {
@@ -1231,6 +1252,9 @@ describe('Cardano', () => {
     })
   })
   describe('getPrice', () => {
+    beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    })
     it('Should be defined', () => {
       expect(cardano['getPrice']).toBeDefined();
     });
@@ -1312,6 +1336,9 @@ describe('Cardano', () => {
     })
   })
   describe('getAddressTxs', () => {
+    beforeEach(() => {
+      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+    })
     it('Should be defined', () => {
       expect(cardano['getAddressTxs']).toBeDefined();
     });
