@@ -5,10 +5,8 @@ import {
   MaestroExplorer,
   Currency,
 } from '@splashprotocol/sdk';
-// import LRUCache from 'lru-cache';
 import { SplashPool } from '../../../src/chains/cardano/types/cardano.types';
 
-// SET ``` NODE_OPTIONS=--experimental-vm-modules ``` in package.json to run cardano.utils.test.ts tests
 
 jest.mock('@maestro-org/typescript-sdk', () => {
   return {
@@ -49,9 +47,6 @@ jest.mock('@splashprotocol/sdk', () => {
     }
   };
 });
-// toString: jest.fn().mockReturnValue({
-// slice: jest.fn().mockReturnValue('5f4dcc3b5aa765d61'),
-// }),
 jest.mock('crypto-js', () => {
   return {
     sha256: {
@@ -230,6 +225,8 @@ describe('getNftBase16Names', () => {
 })
 
 describe('getTokenMetadata', () => {
+  const policyId = 'policy123';
+  const base16Name = '546f6b656e58';
   const mockedMaestroClient = new MaestroClient({} as any);
   afterEach(() => {
     jest.clearAllMocks()
@@ -243,7 +240,7 @@ describe('getTokenMetadata', () => {
   it('should return metadata if base16Name is "414441"', async () => {
     const policyId = 'policy123';
     const base16Name = '414441';
-    const result = await utils.getTokenMetadata(policyId, base16Name
+    const result = await utils.getTokenMetadata(null, policyId, base16Name
       , {} as any);
     expect(result).toEqual({
       decimals: 6,
@@ -255,9 +252,7 @@ describe('getTokenMetadata', () => {
     });
   });
   it('should call assetInfo if base16Name is not "414441"', async () => {
-    const policyId = 'policy123';
-    const base16Name = '546f6b656e58';
-    const result = await utils.getTokenMetadata(policyId, base16Name
+    const result = await utils.getTokenMetadata(null, policyId, base16Name
       , mockedMaestroClient);
     expect(result).toEqual({
       decimals: 6,
@@ -269,12 +264,23 @@ describe('getTokenMetadata', () => {
     });
   });
   it('should return undefined if assetInfo throws an error', async () => {
-    const policyId = 'policy123';
-    const base16Name = '546f6b656e58';
     jest.spyOn(mockedMaestroClient.assets, 'assetInfo').mockRejectedValue(new Error('test error'));
-    const result = await utils.getTokenMetadata(policyId, base16Name
+    const result = await utils.getTokenMetadata(null, policyId, base16Name
       , mockedMaestroClient);
     expect(result).toBeUndefined();
+  });
+  it('should return current metadata if exists and decimals is less than or equal 1', async () => {
+    const current_metadata = {
+      decimals: 0,
+      description: 'current metadata',
+      logo: 'currentMetadataLogo',
+      name: 'current_metadata',
+      ticker: 'current_metadata',
+      url: 'current_metadata.com'
+    }
+    const result = await utils.getTokenMetadata(current_metadata, policyId, base16Name
+      , mockedMaestroClient);
+    expect(result).toEqual(current_metadata);
   });
 });
 
