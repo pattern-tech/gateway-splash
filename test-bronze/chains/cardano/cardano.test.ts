@@ -8,6 +8,7 @@ import { TxRequestParams } from '../../../src/chains/cardano/interfaces/cardano.
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
 import axios from 'axios';
 import LRUCache from 'lru-cache';
+import * as wallet from '../../../src/services/wallet/wallet.controllers';
 
 jest.mock('@maestro-org/typescript-sdk', () => ({
   MaestroClient: jest.fn().mockImplementation(() => ({
@@ -440,6 +441,49 @@ describe('Cardano', () => {
         'fakeMnemonic',
         'mockExplorer',
       );
+    });
+  });
+
+  describe('activateExistingWallet', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('Should be defined', () => {
+      expect(cardano['activateExistingWallet']).toBeDefined();
+    });
+
+    it('should throw an error if more than one wallet file is found', async () => {
+      jest
+        .spyOn(wallet, 'getJsonFiles')
+        .mockResolvedValue(['wallet1.json', 'wallet2.json']);
+
+      await expect(cardano['activateExistingWallet']()).rejects.toThrow(
+        'can only work one wallet',
+      );
+      expect(wallet.getJsonFiles).toHaveBeenCalledWith('./conf/wallets/cardano')
+    });
+
+    it('should throw an error if no wallet file is found', async () => {
+      jest.spyOn(wallet, 'getJsonFiles').mockResolvedValue([]);
+      await expect(cardano['activateExistingWallet']()).rejects.toThrow(
+        'no existing wallets found !',
+      );
+      expect(wallet.getJsonFiles).toHaveBeenCalledWith('./conf/wallets/cardano')
+    });
+
+    it('should call getAccountFromAddress with the correct address if exactly one wallet file is found', async () => {
+      jest.spyOn(wallet, 'getJsonFiles').mockResolvedValue(['myWallet.json']);
+      jest.spyOn(wallet, 'getLastPath').mockReturnValue('myWallet.json');
+      jest.spyOn(wallet, 'dropExtension').mockReturnValue('myWallet');
+      jest
+        .spyOn(cardano, 'getAccountFromAddress')
+        .mockResolvedValue({} as any);
+
+      await cardano['activateExistingWallet']();
+
+      expect(cardano.getAccountFromAddress).toHaveBeenCalledWith('myWallet');
+      expect(wallet.getJsonFiles).toHaveBeenCalledWith('./conf/wallets/cardano')
     });
   });
 
@@ -977,9 +1021,6 @@ describe('Cardano', () => {
   })
 
   describe('estimateFee', () => {
-    beforeEach(() => {
-      jest.spyOn(cardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
-    })
     it('Should be defined', () => {
       expect(cardano['estimateFee']).toBeDefined();
     })
@@ -1015,10 +1056,9 @@ describe('Cardano', () => {
         })
       } as any);
       const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(tempCardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
       jest.spyOn(tempCardano as any, 'fromRaw').mockReturnValue('1');
-      console.log('im here')
       const result = await tempCardano['estimateFee']({} as any, { asset: 'asset' } as any)
-      console.log(result)
       expect(result).toEqual('4.5')
       expect(tempCardano['fromRaw']).toHaveBeenCalledTimes(3);
       expect(tempCardano['_dex'].api.getSplashOperationConfig).toHaveBeenCalledTimes(1);
@@ -1035,6 +1075,8 @@ describe('Cardano', () => {
         newTx: jest.fn().mockReturnValue(undefined),
       } as any);
       const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(tempCardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
+      jest.spyOn(tempCardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
       await expect(
         tempCardano['estimateFee']({} as any, { asset: 'asset' } as any)
       ).rejects.toThrow("Failed to the estimate the fee TypeError: Cannot read properties of undefined (reading 'spotOrder')");
@@ -1272,6 +1314,7 @@ describe('Cardano', () => {
         }
       } as any);
       const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(tempCardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
       await expect(tempCardano['getPrice'](baseToken, quoteToken, true, BigNumber(1))).rejects.toThrow('Failed to fetch the estimate the price Error: error');
     });
     it('Should return the price when priceLimit is not declared', async () => {
@@ -1281,6 +1324,7 @@ describe('Cardano', () => {
         }
       } as any);
       const tempCardano = new Cardano('mainnet', mockConfig, 100, {} as any);
+      jest.spyOn(tempCardano as any, 'activateExistingWallet').mockResolvedValue(undefined);
       expect(await tempCardano['getPrice'](baseToken, quoteToken, true, BigNumber(1))).toEqual('priceWithNoPriceLimit');
       expect(tempCardano['_dex'].api.getOrderBook).toHaveBeenCalledTimes(1);
       expect(tempCardano['_dex'].api.getOrderBook).toHaveBeenCalledWith({ base: baseToken.token.asset, quote: quoteToken.token.asset });
