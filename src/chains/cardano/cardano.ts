@@ -8,7 +8,7 @@ import {
 
 import dotenv from 'dotenv';
 dotenv.config();
-import { CardanoController } from './cardano.controller';
+import { CardanoController } from './cardano.controllers';
 import {
   AddressTransaction,
   Asset,
@@ -49,13 +49,13 @@ import { BigNumber } from 'bignumber.js';
 import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
-import { PriceResponse, TradeResponse } from '../../amm/amm.requests';
+import { PriceResponse, TradeResponse } from '../../connectors/connectors.request';
 import axios from 'axios';
 import {
   dropExtension,
   getJsonFiles,
   getLastPath,
-} from '../../services/wallet/wallet.controllers';
+} from './wallet.service';
 import { CancelRequest, CancelResponse } from '../chain.requests';
 
 /**
@@ -313,6 +313,7 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   async getCurrentBlockNumber(): Promise<number> {
+    this._node.blocks.blockInfo
     const status = await this.getNetworkHeight();
     return status + 1;
   }

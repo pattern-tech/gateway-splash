@@ -5,7 +5,8 @@ import {
   BaseAddress,
   EnterpriseAddress,
   RewardAddress,
-} from '@stricahq/typhonjs/dist/address'; //
+} from '@stricahq/typhonjs/dist/address'; 
+import fse from 'fs-extra';
 import * as bip39 from 'bip39'; //
 import { HashType, NetworkId } from '@stricahq/typhonjs/dist/types'; //
 
@@ -103,10 +104,26 @@ export class CardanoWallet {
     return address.getBech32();
   }
 
-  public sing(tx: Buffer): Buffer {
+  public sign(tx: Buffer): Buffer {
     if (!this.accountKey) {
       throw new Error('you must initialize the wallet first.');
     }
     return this.accountKey.derive(0).derive(0).toPrivateKey().sign(tx);
   }
+  
+}
+
+export function getLastPath(path: string): string {
+  return path.split('/').slice(-1)[0];
+}
+
+export function dropExtension(path: string): string {
+  return path.substr(0, path.lastIndexOf('.')) || path;
+}
+
+export async function getJsonFiles(source: string): Promise<string[]> {
+  const files = await fse.readdir(source, { withFileTypes: true });
+  return files
+    .filter((f) => f.isFile() && f.name.endsWith('.json'))
+    .map((f) => f.name);
 }
