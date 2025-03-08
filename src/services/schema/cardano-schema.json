@@ -11,9 +11,10 @@
               "nodeURL": { "type": "string" },
               "maxLRUCacheInstances": { "type": "string" },
               "utxosLimit": { "type": "string" },
-              "defaultSlippage": { "type": "string" }
+              "defaultSlippage": { "type": "string" },
+              "nativeCurrencySymbol": {"type": "string"}
             },
-            "required": ["nodeURL", "maxLRUCacheInstances", "utxosLimit", "defaultSlippage"],
+            "required": ["nodeURL", "maxLRUCacheInstances", "utxosLimit", "defaultSlippage", "nativeCurrencySymbol"],
             "additionalProperties": false
           }
         },

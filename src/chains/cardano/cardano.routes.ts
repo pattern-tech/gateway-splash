@@ -6,7 +6,6 @@ import {
   NonceRequest,
   NonceResponse,
   AllowancesRequest,
-  ApproveRequest,
   CancelRequest,
   BalanceRequest,
   TokensRequest,

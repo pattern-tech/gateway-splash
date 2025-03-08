@@ -2,8 +2,16 @@ import { SplashConfig } from './splash.config';
 import { Cardano } from '../../chains/cardano/cardano';
 import { CardanoToken } from '../../chains/cardano/interfaces/cardano.interface';
 import { BigNumber } from 'bignumber.js';
-import { PriceRequest, TradeRequest } from '../../amm/amm.requests';
+import { PriceRequest, TradeRequest } from '../connector.requests';
 import { TradeSlippage } from '../../chains/cardano/types/node.types';
+import {
+  HttpException,
+  PRICE_FAILED_ERROR_CODE,
+  PRICE_FAILED_ERROR_MESSAGE,
+  TRADE_FAILED_ERROR_CODE,
+  UNKNOWN_ERROR_ERROR_CODE,
+  UNKNOWN_ERROR_MESSAGE,
+} from '../../services/error-handler';
 
 export class Splash {
   private static _instances: { [name: string]: Splash };
@@ -79,30 +87,46 @@ export class Splash {
    * @param amount Amount of `baseToken` desired from the transaction
    */
   async estimateTrade(req: PriceRequest) {
-    if (req.side === 'SELL')
-      return this.cardano.estimate(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
-        BigNumber(req.amount),
-        false,
-        req.allowedSlippage as TradeSlippage,
-      );
-    else if (req.side === 'BUY')
-      return this.cardano.estimate(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
-        BigNumber(req.amount),
-        true,
-        req.allowedSlippage as TradeSlippage,
-      );
-    else
-      return this.cardano.estimate(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
-        BigNumber(req.amount),
-        true,
-        req.allowedSlippage as TradeSlippage,
-      );
+    try {
+      if (req.side === 'SELL')
+        return this.cardano.estimate(
+          req.base.replace('_', ''),
+          req.quote.replace('_', ''),
+          BigNumber(req.amount),
+          false,
+          req.allowedSlippage as TradeSlippage,
+        );
+      else if (req.side === 'BUY')
+        return this.cardano.estimate(
+          req.base.replace('_', ''),
+          req.quote.replace('_', ''),
+          BigNumber(req.amount),
+          true,
+          req.allowedSlippage as TradeSlippage,
+        );
+      else
+        return this.cardano.estimate(
+          req.base.replace('_', ''),
+          req.quote.replace('_', ''),
+          BigNumber(req.amount),
+          true,
+          req.allowedSlippage as TradeSlippage,
+        );
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new HttpException(
+          500,
+          PRICE_FAILED_ERROR_MESSAGE + e.message,
+          PRICE_FAILED_ERROR_CODE,
+        );
+      } else {
+        throw new HttpException(
+          500,
+          UNKNOWN_ERROR_MESSAGE,
+          UNKNOWN_ERROR_ERROR_CODE,
+        );
+      }
+    }
   }
 
   /**
@@ -112,30 +136,46 @@ export class Splash {
    * @param trade Expected trade
    */
   async executeTrade(req: TradeRequest) {
-    await this.cardano.getAccountFromAddress(req.address as unknown as string)
+    try{
+    await this.cardano.getAccountFromAddress(req.address as unknown as string);
     if (req.side === 'SELL')
       return this.cardano.swap(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
+        req.base.replace('_', ''),
+        req.quote.replace('_', ''),
         BigNumber(req.amount),
         false,
-        String(req.limitPrice)
+        String(req.limitPrice),
       );
     else if (req.side === 'BUY')
       return this.cardano.swap(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
+        req.base.replace('_', ''),
+        req.quote.replace('_', ''),
         BigNumber(req.amount),
         true,
-        String(req.limitPrice)
+        String(req.limitPrice),
       );
     else
       return this.cardano.swap(
-        req.base.replace("_", ""),
-        req.quote.replace("_", ""),
+        req.base.replace('_', ''),
+        req.quote.replace('_', ''),
         BigNumber(req.amount),
         true,
-        String(req.limitPrice)
+        String(req.limitPrice),
       );
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new HttpException(
+          500,
+          TRADE_FAILED_ERROR_CODE + e.message,
+          TRADE_FAILED_ERROR_CODE
+        );
+      } else {
+        throw new HttpException(
+          500,
+          UNKNOWN_ERROR_MESSAGE,
+          UNKNOWN_ERROR_ERROR_CODE
+        );
+      }
+    }
   }
 }

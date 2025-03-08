@@ -26,6 +26,7 @@ export function getCardanoConfig(network: string): CardanoConfig {
       defaultSlippage: configManager.get(
         `cardano.networks.${_network}.defaultSlippage`,
       ),
+      nativeCurrencySymbol: configManager.get(`cardano.networks.${_network}.nativeCurrencySymbol`)
     },
   };
 }

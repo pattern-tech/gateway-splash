@@ -27,6 +27,7 @@ import {
 import { Solana } from '../chains/solana/solana';
 import { EthereumBase } from '../chains/ethereum/ethereum-base';
 import { Cardano } from '../chains/cardano/cardano';
+import * as Path from 'path';
 
 const walletPath = './conf/wallets';
 
@@ -38,7 +39,7 @@ export async function mkdirIfDoesNotExist(path: string): Promise<void> {
 }
 
 export async function addWallet(
-  req: AddWalletRequest
+  req: AddWalletRequest,
 ): Promise<AddWalletResponse> {
   const passphrase = ConfigManagerCertPassphrase.readPassphrase();
   if (!passphrase) {
@@ -55,7 +56,7 @@ export async function addWallet(
       throw new HttpException(
         500,
         UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE(req.chain),
-        UNKNOWN_CHAIN_ERROR_CODE
+        UNKNOWN_CHAIN_ERROR_CODE,
       );
     }
     throw e;
@@ -66,7 +67,7 @@ export async function addWallet(
       address = connection.getWalletFromPrivateKey(req.privateKey).address;
       encryptedPrivateKey = await connection.encrypt(
         req.privateKey,
-        passphrase
+        passphrase,
       );
     } else if (connection instanceof Solana) {
       address = connection
@@ -74,8 +75,28 @@ export async function addWallet(
         .publicKey.toBase58();
       encryptedPrivateKey = await connection.encrypt(
         req.privateKey,
-        passphrase
+        passphrase,
       );
+    } else if (connection instanceof Cardano) {
+      console.log("this is the received private key: ", req.privateKey)
+      const account = await connection.getAccountFromMnemonic(req.privateKey);
+      address = account.generateBaseAddress();
+      encryptedPrivateKey = await connection.encrypt(req.privateKey, passphrase);
+      await connection.getAccountFromAddress(String(address));
+
+      // deleting the previous cardano address if any
+      const walletsPath = `${walletPath}/${req.chain}`;
+      const walletFilePath = `${address}.json`;
+      let files = await fse.readdir(walletsPath);
+      if (files.length != 0) {
+        for (const file of files) {
+          await fse.remove(Path.join(walletsPath, file));
+        }
+      }
+      const exists = await fse.pathExists(Path.join(walletPath, walletFilePath));
+      if (exists) {
+        await fse.truncate(Path.join(walletPath, walletFilePath));
+      }
     }
     if (address === undefined || encryptedPrivateKey === undefined) {
       throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');
@@ -84,7 +105,7 @@ export async function addWallet(
     throw new HttpException(
       500,
       ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_MESSAGE(req.privateKey),
-      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE
+      ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE,
     );
   }
   const path = `${walletPath}/${req.chain}`;
@@ -98,8 +119,12 @@ export async function removeWallet(req: RemoveWalletRequest): Promise<void> {
   await fse.remove(`${walletPath}/${req.chain}/${req.address}.json`);
 }
 
-export async function signMessage(req: SignMessageRequest): Promise<SignMessageResponse> {
-  logger.info(`Signing message for wallet: ${req.address} on chain: ${req.chain}`);
+export async function signMessage(
+  req: SignMessageRequest,
+): Promise<SignMessageResponse> {
+  logger.info(
+    `Signing message for wallet: ${req.address} on chain: ${req.chain}`,
+  );
   const connection = await getInitializedChain(req.chain, req.network);
   const wallet = await (connection as any).getWallet(req.address);
   const signature = await wallet.signMessage(req.message);
@@ -134,7 +159,7 @@ export async function getWallets(): Promise<GetWalletResponse[]> {
     const walletFiles = await getJsonFiles(`${walletPath}/${chain}`);
     responses.push({
       chain,
-      walletAddresses: walletFiles.map(file => dropExtension(file))
+      walletAddresses: walletFiles.map((file) => dropExtension(file)),
     });
   }
 
@@ -172,4 +197,3 @@ export async function addApiKey(req: AddApiKeyRequest): Promise<void> {
     }
   }
 }
-

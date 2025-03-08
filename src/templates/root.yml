@@ -23,3 +23,11 @@ configurations:
   $namespace meteora:
     configurationPath: meteora.yml
     schemaPath: meteora-schema.json
+  
+  $namespace cardano:
+    configurationPath: cardano.yml
+    schemaPath: cardano-schema.json
+  
+  $namespace splash:
+    configurationPath: splash.yml
+    schemaPath: splash-schema.json

@@ -146,7 +146,7 @@ export class Solana {
       });
 
       logger.info(`Loaded ${tokens.length} tokens for ${this.network}`);
-    } catch (error) {
+    } catch (error:any) {
       logger.error(`Failed to load token list for ${this.network}: ${error.message}`);
       throw error;
     }
@@ -251,7 +251,7 @@ export class Solana {
 
     // Fetch the token list and create lookup map
     const tokenList = await this.getTokenList();
-    const tokenDefs = tokenList.reduce((acc, token) => {
+    const tokenDefs = tokenList.reduce((acc: Record<string, any>, token) => {
       if (!upperCaseSymbols || upperCaseSymbols.includes(token.symbol.toUpperCase())) {
         acc[token.address] = { symbol: token.symbol, decimals: token.decimals };
       }
@@ -730,8 +730,8 @@ export class Solana {
       }
     }
 
-    const preTokenBalances = txDetails.meta?.preTokenBalances || [];
-    const postTokenBalances = txDetails.meta?.postTokenBalances || [];
+    const preTokenBalances = txDetails?.meta?.preTokenBalances || [];
+    const postTokenBalances = txDetails?.meta?.postTokenBalances || [];
 
     const preBalance =
       preTokenBalances.find((balance) => balance.mint === mint && balance.owner === owner)
@@ -742,7 +742,7 @@ export class Solana {
         ?.uiTokenAmount.uiAmount || 0;
 
     const balanceChange = postBalance - preBalance;
-    const fee = (txDetails.meta?.fee || 0) / 1_000_000_000; // Convert lamports to SOL
+    const fee = (txDetails?.meta?.fee || 0) / 1_000_000_000; // Convert lamports to SOL
 
     return { balanceChange, fee };
   }
@@ -773,12 +773,12 @@ export class Solana {
       }
     }
 
-    const preBalances = txDetails.meta?.preBalances || [];
-    const postBalances = txDetails.meta?.postBalances || [];
+    const preBalances = txDetails?.meta?.preBalances || [];
+    const postBalances = txDetails?.meta?.postBalances || [];
 
     const balanceChange =
       Math.abs(postBalances[accountIndex] - preBalances[accountIndex]) * LAMPORT_TO_SOL;
-    const fee = (txDetails.meta?.fee || 0) * LAMPORT_TO_SOL;
+    const fee = (txDetails?.meta?.fee || 0) * LAMPORT_TO_SOL;
 
     return { balanceChange, fee };
   }
@@ -811,7 +811,7 @@ export class Solana {
       
       // Return first wallet address (without .json extension)
       return walletFiles[0].slice(0, -5);
-    } catch (error) {
+    } catch (error:any) {
       logger.error(`Failed to get first wallet address: ${error.message}`);
       throw error;
     }

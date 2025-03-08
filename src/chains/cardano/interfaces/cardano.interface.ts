@@ -48,6 +48,7 @@ export interface CardanoNetworkConfig {
   maxLRUCacheInstances: number;
   utxosLimit: number;
   defaultSlippage: string;
+  nativeCurrencySymbol: string;
 }
 export interface CardanoConfig {
   network: CardanoNetworkConfig;

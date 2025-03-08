@@ -1,4 +1,4 @@
-import LRUCache from 'lru-cache';
+import {LRUCache} from 'lru-cache';
 import {
   CardanoConfig,
   CardanoConnectedInstance,
@@ -27,9 +27,9 @@ import {
   Price,
   stringToHex,
   Transaction,
-  selectEstimatedPrice,
   HotWallet,
   isOOROrder,
+  fetchEstimatedPrice,
 } from '@splashprotocol/sdk';
 import { getCardanoConfig } from './cardano.config';
 import {
@@ -44,18 +44,17 @@ import {
 } from './cardano.utils';
 import { SplashPool } from './types/cardano.types';
 import { SplashInstance, TradeSlippage } from './types/node.types';
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import crypto from 'crypto';
 import { BigNumber } from 'bignumber.js';
 import { CardanoWallet } from './wallet.service';
 import { walletPath } from '../../services/base';
 import { ConfigManagerCertPassphrase } from '../../services/config-manager-cert-passphrase';
-import { PriceResponse, TradeResponse } from '../../connectors/connectors.request';
-import axios from 'axios';
 import {
-  dropExtension,
-  getJsonFiles,
-  getLastPath,
-} from './wallet.service';
+  PriceResponse,
+  TradeResponse,
+} from '../../connectors/connector.requests';
+import axios from 'axios';
+import { dropExtension, getJsonFiles, getLastPath } from './wallet.service';
 import { CancelRequest, CancelResponse } from '../chain.requests';
 
 /**
@@ -313,7 +312,7 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   async getCurrentBlockNumber(): Promise<number> {
-    this._node.blocks.blockInfo
+    this._node.blocks.blockInfo;
     const status = await this.getNetworkHeight();
     return status + 1;
   }
@@ -329,9 +328,7 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     try {
-
       await this.activateExistingWallet();
-
       let utxos: Array<UtxoWithSlot> = [];
       utxos = (
         await this._node.addresses.utxosByAddress(address, {
@@ -376,7 +373,7 @@ export class Cardano {
 
     let passphrase = ConfigManagerCertPassphrase.readPassphrase();
 
-    let encryptedMnemonic = this.encrypt(mnemonic, passphrase!);
+    let encryptedMnemonic = await this.encrypt(mnemonic, passphrase!);
 
     const path = `${walletPath}/${this._chain}`;
     await fse.ensureDir(path);
@@ -403,11 +400,8 @@ export class Cardano {
     if (walletFiles.length == 0) {
       throw new Error('no existing wallets found !');
     }
-
     const address = dropExtension(getLastPath(walletFiles[0]));
-
     await this.getAccountFromAddress(address);
-
     return;
   }
 
@@ -417,18 +411,40 @@ export class Cardano {
    * @param {string} password - The password to use for encryption
    * @returns {string} The encrypted secret
    */
-  public encrypt(secret: string, password: string): string {
-    const iv = randomBytes(16);
-    const key = Buffer.alloc(32);
+  async encrypt(secret: string, password: string): Promise<string> {
+    const algorithm = 'aes-256-ctr';
+    const iv = crypto.randomBytes(16);
+    const salt = crypto.randomBytes(32);
+    const key = crypto.pbkdf2Sync(
+      password,
+      new Uint8Array(salt),
+      5000,
+      32,
+      'sha512',
+    );
+    const cipher = crypto.createCipheriv(
+      algorithm,
+      new Uint8Array(key),
+      new Uint8Array(iv),
+    );
 
-    key.write(password);
+    const encryptedBuffers = [
+      new Uint8Array(cipher.update(new Uint8Array(Buffer.from(secret)))),
+      new Uint8Array(cipher.final()),
+    ];
+    const encrypted = Buffer.concat(encryptedBuffers);
 
-    const cipher = createCipheriv('aes-256-cbc', key, iv);
-    const encrypted = Buffer.concat([cipher.update(secret), cipher.final()]);
+    const ivJSON = iv.toJSON();
+    const saltJSON = salt.toJSON();
+    const encryptedJSON = encrypted.toJSON();
 
-    return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
+    return JSON.stringify({
+      algorithm,
+      iv: ivJSON,
+      salt: saltJSON,
+      encrypted: encryptedJSON,
+    });
   }
-
   /**
    * Gets an Cardano account from an address
    * @param {string} address - The address to get the account for
@@ -444,7 +460,7 @@ export class Cardano {
     if (!passphrase) {
       throw new Error('missing passphrase');
     }
-    const mnemonic = this.decrypt(encryptedMnemonic, passphrase);
+    const mnemonic = await this.decrypt(encryptedMnemonic, passphrase);
     return this.getAccountFromMnemonic(mnemonic);
   }
 
@@ -454,21 +470,26 @@ export class Cardano {
    * @param {string} password - The password to use for decryption
    * @returns {string} The decrypted secret
    */
-  public decrypt(encryptedSecret: string, password: string): string {
-    const [iv, encryptedKey] = encryptedSecret.split(':');
-    const key = Buffer.alloc(32);
+  async decrypt(encryptedSecret: string, password: string): Promise<string> {
+    const hash = JSON.parse(encryptedSecret);
+    const salt = new Uint8Array(Buffer.from(hash.salt, 'utf8'));
+    const iv = new Uint8Array(Buffer.from(hash.iv, 'utf8'));
 
-    key.write(password);
+    const key = crypto.pbkdf2Sync(password, salt, 5000, 32, 'sha512');
 
-    const decipher = createDecipheriv(
-      'aes-256-cbc',
-      key,
-      Buffer.from(iv, 'hex'),
+    const decipher = crypto.createDecipheriv(
+      hash.algorithm,
+      new Uint8Array(key),
+      iv,
     );
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(encryptedKey, 'hex')),
-      decipher.final(),
-    ]);
+
+    const decryptedBuffers = [
+      new Uint8Array(
+        decipher.update(new Uint8Array(Buffer.from(hash.encrypted, 'hex'))),
+      ),
+      new Uint8Array(decipher.final()),
+    ];
+    const decrypted = Buffer.concat(decryptedBuffers);
 
     return decrypted.toString();
   }
@@ -911,8 +932,6 @@ export class Cardano {
     outputAsset: AssetInfo,
   ): Promise<string> {
     try {
-      console.log('estimating the fee', input, outputAsset);
-
       await this.activateExistingWallet();
 
       const tx = await this._dex
@@ -929,7 +948,7 @@ export class Cardano {
       );
 
       let minUTxoValue = BigNumber(
-        (await this._dex.explorer.getProtocolParams()).minUTxOValue.toString(),
+        (await this._dex['protocolParamsP']).minUTxOValue.toString(),
       );
 
       let splashOps = (await this._dex.api.getSplashOperationConfig())
@@ -1155,8 +1174,6 @@ export class Cardano {
     if (!estimatedFee) {
       const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
-      console.log('these are the base and quote', temp_base, temp_quote, buy);
-      console.log('these are the base and quote', temp_base, temp_quote, buy);
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
@@ -1237,7 +1254,6 @@ export class Cardano {
     priceLimit?: string,
   ): Promise<Price> {
     try {
-      
       await this.activateExistingWallet();
 
       if (priceLimit) {
@@ -1257,6 +1273,7 @@ export class Cardano {
           : token.token.asset,
       );
 
+      // @ts-ignore
       const orderBook = await this._dex.api.getOrderBook({
         base: baseToken.token.asset,
         quote: quoteToken.token.asset,
@@ -1267,7 +1284,7 @@ export class Cardano {
       const input = inputToken.token.withAmount(
         BigInt(Math.trunc(parseFloat(this.toRaw(amount, inputToken.decimals)))),
       );
-      return selectEstimatedPrice({
+      return fetchEstimatedPrice({
         orderBook,
         input,
         priceType: 'average',
@@ -1338,7 +1355,6 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
-
     await this.activateExistingWallet();
 
     return (

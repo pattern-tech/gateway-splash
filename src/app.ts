@@ -1,140 +1,246 @@
-/* eslint-disable @typescript-eslint/ban-types */
-import express from 'express';
-import { Request, Response, NextFunction } from 'express';
-import { ConfigRoutes } from './services/config/config.routes';
-import { WalletRoutes } from './services/wallet/wallet.routes';
+// External dependencies
+import Fastify, { FastifyInstance } from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
+import { Type } from '@sinclair/typebox';
+// Internal services
 import { logger } from './services/logger';
-import { addHttps } from './https';
+import { getHttpsOptions } from './https';
 import {
-  asyncHandler,
+  gatewayErrorMiddleware,
   HttpException,
   NodeError,
-  gatewayErrorMiddleware,
 } from './services/error-handler';
 import { ConfigManagerV2 } from './services/config-manager-v2';
-import { SwaggerManager } from './services/swagger-manager';
-import { ConnectorsRoutes } from './connectors/connectors.routes';
-import { AmmRoutes, AmmLiquidityRoutes, PerpAmmRoutes } from './amm/amm.routes';
-import { CLOBRoutes, PerpClobRoutes } from './clob/clob.routes';
 
-import morgan from 'morgan';
-import swaggerUi from 'swagger-ui-express';
-import { ChainRoutes } from './chains/chain.routes';
+// Routes
+import { configRoutes } from './config/config.routes';
+import { walletRoutes } from './wallet/wallet.routes';
+import { connectorsRoutes } from './connectors/connector.routes';
+import { solanaRoutes } from './chains/solana/solana.routes';
+import { ethereumRoutes } from './chains/ethereum/ethereum.routes';
+import { CardanoRoutes } from './chains/cardano/cardano.routes';
+import { jupiterRoutes } from './connectors/jupiter/jupiter.routes';
+import { meteoraRoutes } from './connectors/meteora/meteora.routes';
+import { uniswapRoutes } from './connectors/uniswap/uniswap.routes';
+import { SplashRoutes } from './connectors/splash/splash.routes';
+// Change version for each release
+const GATEWAY_VERSION = 'dev-2.4.0';
 
-export const gatewayApp = express();
+// At the top level, define devMode once
+// When true, runs server in HTTP mode (less secure but useful for development)
+// When false, runs server in HTTPS mode (secure, default for production)
+// Use --dev flag to enable HTTP mode, e.g.: yarn start --dev
+// Tests automatically run in dev mode via GATEWAY_TEST_MODE=dev
+const devMode =
+  process.argv.includes('--dev') || process.env.GATEWAY_TEST_MODE === 'dev';
 
-// parse body for application/json
-gatewayApp.use(express.json());
-
-// parse url for application/x-www-form-urlencoded
-gatewayApp.use(express.urlencoded({ extended: true }));
-
-// logging middleware
-// skip logging path '/' or `/network/status`
-gatewayApp.use(
-  morgan('combined', {
-    skip: function (req, _res) {
-      return (
-        req.originalUrl === '/' || req.originalUrl.includes('/network/status')
-      );
+const swaggerOptions = {
+  openapi: {
+    info: {
+      title: 'Hummingbot Gateway',
+      description:
+        'API endpoints for interacting with DEX connectors on various blockchain networks',
+      version: GATEWAY_VERSION,
     },
-  })
-);
+    servers: [
+      {
+        url: `http://localhost:${ConfigManagerV2.getInstance().get('server.port')}`,
+      },
+    ],
+    tags: [
+      { name: 'connectors', description: 'Available connectors' },
+      { name: 'config', description: 'Configuration endpoints' },
+      { name: 'wallet', description: 'Wallet endpoints' },
+      { name: 'solana', description: 'Solana chain endpoints' },
+      { name: 'meteora', description: 'Meteora connector endpoints' },
+      { name: 'jupiter', description: 'Jupiter connector endpoints' },
+      { name: 'ethereum', description: 'Ethereum chain endpoints' },
+      { name: 'uniswap', description: 'Uniswap connector endpoints' },
+      { name: 'splash', description: 'splash connector endpoints' },
+      { name: 'cardano', description: 'cardano chain endpoints' },
+    ],
+    components: {
+      parameters: {
+        queryExample: {
+          in: 'query',
+          name: 'example',
+          schema: {
+            type: 'object' as const,
+          },
+        },
+      },
+    },
+  },
+  transform: ({ schema, url }) => {
+    try {
+      return {
+        schema: schema ? Type.Strict(schema) : schema,
+        url: url,
+      };
+    } catch (error) {
+      return { schema, url };
+    }
+  },
+  hideUntagged: true,
+  exposeRoute: true,
+};
 
-// mount sub routers
-gatewayApp.use('/config', ConfigRoutes.router);
-gatewayApp.use('/chain', ChainRoutes.router);
-gatewayApp.use('/connectors', ConnectorsRoutes.router);
+// Create gateway app configuration function
+const configureGatewayServer = () => {
+  const server = Fastify({
+    logger: ConfigManagerV2.getInstance().get('server.fastifyLogs')
+      ? {
+          level: 'info',
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              translateTime: 'HH:MM:ss Z',
+              ignore: 'pid,hostname',
+            },
+          },
+        }
+      : false,
+    https: devMode ? undefined : getHttpsOptions(),
+  });
 
-gatewayApp.use('/amm', AmmRoutes.router);
-gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
-gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
-gatewayApp.use('/wallet', WalletRoutes.router);
-gatewayApp.use('/clob', CLOBRoutes.router);
-gatewayApp.use('/clob/perp', PerpClobRoutes.router);
+  const docsPort = ConfigManagerV2.getInstance().get('server.docsPort');
 
-// a simple route to test that the server is running
-gatewayApp.get('/', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
-});
+  // Only create separate docs server if docsPort is specified and non-zero
+  const docsServer = docsPort ? Fastify() : null;
 
-gatewayApp.post(
-  '/restart',
-  asyncHandler(async (_req, res) => {
-    // kill the current process and trigger the exit event
-    process.exit(1);
-    // this is only to satisfy the compiler, it will never be called.
-    res.status(200).json();
-  })
-);
-
-// handle any error thrown in the gateway api route
-gatewayApp.use(
-  (
-    err: Error | NodeError | HttpException,
-    _req: Request,
-    res: Response,
-    _next: NextFunction
-  ) => {
-    const response = gatewayErrorMiddleware(err);
-    logger.error(err);
-    return res.status(response.httpErrorCode).json(response);
+  // Register TypeBox provider
+  server.withTypeProvider<TypeBoxTypeProvider>();
+  if (docsServer) {
+    docsServer.withTypeProvider<TypeBoxTypeProvider>();
   }
-);
 
-export const swaggerDocument = SwaggerManager.generateSwaggerJson(
-  './docs/swagger/swagger.yml',
-  './docs/swagger/definitions.yml',
-  [
-    './docs/swagger/main-routes.yml',
-    './docs/swagger/connectors-routes.yml',
-    './docs/swagger/clob-routes.yml',
-    './docs/swagger/clob-perp-routes.yml',
-    './docs/swagger/wallet-routes.yml',
-    './docs/swagger/amm-routes.yml',
-    './docs/swagger/amm-liquidity-routes.yml',
-    './docs/swagger/chain-routes.yml',
-  ]
-);
+  // Register Swagger
+  server.register(fastifySwagger, swaggerOptions);
 
-export const startSwagger = async () => {
-  const swaggerApp = express();
-  const swaggerPort = 8080;
+  // Register Swagger UI based on configuration
+  if (!docsPort) {
+    // If no docs port, serve docs on main server at /docs
+    server.register(fastifySwaggerUi, {
+      routePrefix: '/docs',
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: false,
+        tryItOutEnabled: true,
+        displayRequestDuration: true,
+        persistAuthorization: true,
+        filter: true,
+        defaultModelExpandDepth: 3,
+        defaultModelsExpandDepth: 3,
+      },
+      staticCSP: true,
+      transformStaticCSP: (header) => header,
+    });
+  } else {
+    // Otherwise set up separate docs server
+    docsServer?.register(fastifySwagger, swaggerOptions);
+    docsServer?.register(fastifySwaggerUi, {
+      routePrefix: '/',
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: false,
+        tryItOutEnabled: true,
+      },
+    });
+  }
 
-  logger.info(
-    `⚡️ Swagger listening on port ${swaggerPort}. Read the Gateway API documentation at 127.0.0.1:${swaggerPort}`
+  // Register routes on both servers
+  const registerRoutes = async (app: FastifyInstance) => {
+    app.register(configRoutes, { prefix: '/config' });
+    app.register(connectorsRoutes, { prefix: '/connectors' });
+    app.register(walletRoutes, { prefix: '/wallet' });
+    app.register(jupiterRoutes, { prefix: '/jupiter' });
+    app.register(meteoraRoutes, { prefix: '/meteora' });
+    app.register(uniswapRoutes, { prefix: '/uniswap' });
+    app.register(solanaRoutes, { prefix: '/solana' });
+    app.register(ethereumRoutes, { prefix: '/ethereum' });
+    app.register(CardanoRoutes, { prefix: '/cardano' });
+    app.register(SplashRoutes, { prefix: '/splash' });
+  };
+
+  // Register routes on main server
+  registerRoutes(server);
+  // Register routes on docs server (for OpenAPI generation) only if it exists
+  if (docsServer) {
+    registerRoutes(docsServer);
+  }
+
+  // Start docs server only if docsPort is specified
+  if (docsServer && docsPort) {
+    docsServer.listen({ port: docsPort, host: '0.0.0.0' }, (err) => {
+      if (err) {
+        logger.error('Failed to start docs server:', err);
+      } else {
+        logger.info(
+          `📓 Documentation available at http://localhost:${docsPort}`,
+        );
+      }
+    });
+  } else {
+    const protocol = devMode ? 'http' : 'https';
+    logger.info(
+      `📓 Documentation available at ${protocol}://localhost:${ConfigManagerV2.getInstance().get('server.port')}/docs`,
+    );
+  }
+
+  // Register request body parsers
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    server.getDefaultJsonParser('ignore', 'ignore'),
   );
 
-  swaggerApp.use('/', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  // Global error handler
+  server.setErrorHandler(
+    (error: Error | NodeError | HttpException, _request, reply) => {
+      logger.error(error);
+      const response = gatewayErrorMiddleware(error);
+      return reply.status(response.httpErrorCode).send(response);
+    },
+  );
 
-  await swaggerApp.listen(swaggerPort);
+  // Health check route (outside registerRoutes, only on main server)
+  server.get('/', async () => {
+    return { status: 'ok' };
+  });
+
+  // Restart endpoint (outside registerRoutes, only on main server)
+  server.post('/restart', async () => {
+    process.exit(1);
+  });
+
+  return server;
 };
+
+// Export the server instance
+export const gatewayApp = configureGatewayServer();
 
 export const startGateway = async () => {
   const port = ConfigManagerV2.getInstance().get('server.port');
-  const gateway_version="2.0.1"
-  if (!ConfigManagerV2.getInstance().get('server.id')) {
-    ConfigManagerV2.getInstance().set(
-      'server.id',
-      Math.random().toString(16).substr(2, 14)
-    );
-  }
-  logger.info(`Gateway Version: ${gateway_version}`); // display gateway version
-  logger.info(`⚡️ Starting Gateway API on port ${port}...`);
-  if (ConfigManagerV2.getInstance().get('server.unsafeDevModeWithHTTP')) {
-    logger.info('Running in UNSAFE HTTP! This could expose private keys.');
-    await gatewayApp.listen(port);
-  } else {
-    try {
-      await addHttps(gatewayApp).listen(port);
-      logger.info('The gateway server is secured behind HTTPS.');
-    } catch (e) {
-      logger.error(
-        `Failed to start the server with https. Confirm that the SSL certificate files exist and are correct. Error: ${e}`
-      );
-      process.exit();
-    }
-  }
+  const protocol = devMode ? 'http' : 'https';
 
-  await startSwagger();
+  logger.info(
+    `⚡️ Gateway version ${GATEWAY_VERSION} starting at ${protocol}://localhost:${port}`,
+  );
+
+  try {
+    if (devMode) {
+      logger.info(
+        '🔴 Running in development mode with (unsafe!) HTTP endpoints',
+      );
+      await gatewayApp.listen({ port, host: '0.0.0.0' });
+    } else {
+      logger.info('🟢 Running in secured mode with behind HTTPS endpoints');
+      await gatewayApp.listen({ port, host: '0.0.0.0' });
+    }
+  } catch (err) {
+    logger.error(`Failed to start the server: ${err}`);
+    process.exit(1);
+  }
 };

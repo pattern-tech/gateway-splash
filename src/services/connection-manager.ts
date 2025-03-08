@@ -39,6 +39,10 @@ export async function getInitializedChain<_T>(
     throw new UnsupportedChainException(`unsupported chain ${chain}`);
   }
 
+  if (chainInstance instanceof Cardano && !chainInstance.ready()) {
+    await chainInstance.init();
+  }
+
   return chainInstance;
 }
 

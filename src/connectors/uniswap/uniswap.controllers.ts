@@ -189,6 +189,7 @@ export async function price(
   }, initTime);
 }
 
+
 export async function trade(
   ethereum: Ethereum,
   uniswapish: Uniswapish,

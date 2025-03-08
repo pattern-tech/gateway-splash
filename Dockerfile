@@ -1,5 +1,5 @@
 # Set the base image
-FROM node:20.0.0
+FROM node:20.11
 
 # Use SSH during the build process
 # Ensures the known hosts include GitHub

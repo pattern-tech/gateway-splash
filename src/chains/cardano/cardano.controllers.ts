@@ -1,21 +1,29 @@
-import { PollResponse, AssetsResponse } from './interfaces/cardano.interface';
+import {
+  PollResponse,
+  AssetsResponse,
+} from './interfaces/cardano.interface';
 import {
   AllowancesRequest,
   AllowancesResponse,
   CancelRequest,
   CancelResponse,
-  BalanceResponse,
-  BalanceRequest,
-  TokensRequest,
-  StatusRequest,
-  StatusResponse,
-  PollRequest,
   NonceRequest,
   NonceResponse,
+  StatusResponse,
+} from '../chain.requests';
+import {
+  BalanceResponse,
+  TokensRequest,
+  BalanceRequest,
+  PollRequest,
 } from '../chain.requests';
 import { Cardano } from './cardano';
+import { UtxoWithSlot } from '@maestro-org/typescript-sdk';
+import { StatusRequest } from '../solana/solana.routes';
 
 export class CardanoController {
+  static latest_utxos: Promise<UtxoWithSlot[]>;
+
   static async balances(
     chain: Cardano,
     request: BalanceRequest,
@@ -23,9 +31,10 @@ export class CardanoController {
     if (!chain.ready()) {
       await chain.init();
     }
-    const utxos = await chain.getAddressUtxos(request.address);
+    let utxos = await chain.getAddressUtxos(request.address);
+    this.latest_utxos = Promise.resolve(utxos);
 
-    const { balance, assets } = chain.getBalance(utxos);
+    const { balance, assets } = chain.getBalance(await this.latest_utxos);
     const new_assets: Record<string, string> = {};
     Object.keys(assets).forEach((value) => {
       new_assets[value] = assets[value].toString();
@@ -34,7 +43,7 @@ export class CardanoController {
       network: String(chain.network),
       timestamp: Date.now(),
       latency: 0,
-      balances: { ADA: balance.toString(), ...new_assets },
+      balances: { "ADA" : balance.toString(), ...new_assets },
     };
   }
 
@@ -65,9 +74,8 @@ export class CardanoController {
     if (!cardano.ready()) {
       await cardano.init();
     }
-    const utxos = await cardano.getAddressUtxos(request.address);
 
-    const { balance, assets } = cardano.getBalance(utxos);
+    const { balance, assets } = cardano.getBalance(await this.latest_utxos);
     const new_assets: Record<string, string> = {};
     Object.keys(assets).forEach((value) => {
       new_assets[value] = assets[value].toString();
@@ -86,7 +94,7 @@ export class CardanoController {
 
   static async getStatus(
     cardano: Cardano,
-    request: StatusRequest,
+    _request: StatusRequest,
   ): Promise<StatusResponse | string> {
     if (!cardano.ready()) {
       await cardano.init();
@@ -100,10 +108,10 @@ export class CardanoController {
       currentBlockNumber: await cardano.getCurrentBlockNumber(),
     };
   }
-  
+
   static async nonce(
     cardano: Cardano,
-    request: NonceRequest,
+    _request: NonceRequest,
   ): Promise<NonceResponse | void> {
     if (!cardano.ready()) {
       await cardano.init();
@@ -127,10 +135,6 @@ export class CardanoController {
     if (!cardano.ready()) {
       await cardano.init();
     }
-
-    if (!req.txHash) {
-      throw new Error('No tx hash to poll tx for !!');
-    }
     const tx = await cardano.getTx(req.txHash);
     const oor = await cardano.checkSatisfaction(req.txHash);
 
@@ -151,7 +155,6 @@ export class CardanoController {
       currentBlock: Number(tx?.block_height),
       txBlock: Number(tx?.block_height),
       txHash: tx?.tx_hash,
-      fee: tx.fee,
     };
   }
 }

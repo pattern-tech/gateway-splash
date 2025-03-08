@@ -26,6 +26,7 @@ export const RemoveWalletRequestSchema = Type.Object({
   address: WalletAddressSchema
 });
 
+
 export const SignMessageRequestSchema = Type.Object({
   chain: Type.String(),
   network: Type.String(),
@@ -128,34 +129,10 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.delete<{ Body: AddApiKeyRequest }>(
-    '/apikey',
-    {
-      schema: {
-        description: 'Remove a wallet by its address',
-        tags: ['wallet'],
-        body: {
-          ...RemoveWalletRequestSchema,
-          examples: [{
-            chain: 'solana',
-            address: '<address>'
-          }]
-        },
-        response: {
-          200: {
-            type: 'null'
-          }
-        }
-      }
-    },
-    async (request) => {
-      await addApiKey(request.body);
-      return null;
-    }
-  );
 
 
   // POST /sign-message
+  
   fastify.post<{ Body: SignMessageRequest; Reply: SignMessageResponse }>(
     '/sign',
     {
@@ -180,6 +157,35 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
       return await signMessage(request.body);
     }
   );
+
+  // POST /apikey
+  fastify.post<{ Body: AddApiKeyRequest }>(
+    '/apikey',
+    {
+      schema: {
+        description: 'Add the node provider api key',
+        tags: ['wallet'],
+        body: {
+          ...AddApiKeyRequestSchema,
+          examples: [{
+            chain: "cardano",
+            network: "mainnet",
+            dex_api_key: "sjbiorwbvebviebvipyeuvbetpiuvbretipuvbr",
+          }]
+        },
+        response: {
+          200: {
+            type: 'null'
+          }
+        }
+      }
+    },
+    async (request) => {
+      await addApiKey(request.body);
+      return null;
+    }
+  );
+
 };
 
 export default walletRoutes;

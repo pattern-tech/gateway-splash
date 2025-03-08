@@ -15,7 +15,7 @@ import { CardanoToken } from './interfaces/cardano.interface';
 import { SplashPool } from './types/cardano.types';
 import { poolNftNames, SplashInstance } from './types/node.types';
 import dotenv from 'dotenv';
-import LRUCache from 'lru-cache';
+import {LRUCache} from 'lru-cache';
 import { getCardanoConfig } from './cardano.config';
 import sha256 from 'crypto-js/sha256';
 import { enc } from 'crypto-js';
@@ -261,16 +261,19 @@ export async function getTokenMetadataWithBackoff(
   return metadata;
 }
 
+
 /**
  * Fetches the splash dex trading pools
  * @param {SplashInstance} splashClient - The splash dex api handler object
  * @returns
  */
+
 export async function getSplashPools(
   splashClient: SplashInstance,
 ): Promise<Record<string, SplashPool[]>> {
   try {
     // loading pools
+    // @ts-ignore
     let verifiedPools: SplashPool[] = await splashClient.api.getSplashPools({
       duplicated: false,
       verified: true,
