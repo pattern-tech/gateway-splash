@@ -21,6 +21,9 @@ import sha256 from 'crypto-js/sha256';
 import { enc } from 'crypto-js';
 
 dotenv.config({ path: '../../../.env' });
+let counter = -1;
+let MAESTRO_API_KEYS = process.env.MAESTRO_API_KEY!.split(', ')
+let len_env = MAESTRO_API_KEYS.length
 
 /**
  * Creates a maestro node config object
@@ -31,30 +34,31 @@ dotenv.config({ path: '../../../.env' });
 export function getMaestroConfig(
   network: MaestroSupportedNetworks,
   url: string,
-  maestroApiKey: string | undefined,
 ): MaestroConfig {
+  if (counter + 1 == len_env) {
+    counter = -1;
+  }
+  counter += 1
   return new MaestroConfig({
-    apiKey: maestroApiKey,
+    apiKey: MAESTRO_API_KEYS[counter],
     baseUrl: url,
     network: network,
   });
 }
 
 /**
- * Cerates a splash dex api handler object
- * @param {MaestroSupportedNetworks} network - The name of the network
- * @returns {SplashInstance} Returns a splash dex api handler object
- */
+* Cerates a splash dex api handler object
+* @param {MaestroSupportedNetworks} network - The name of the network
+* @returns {SplashInstance} Returns a splash dex api handler object
+*/
 export function getSplashInstance(
-  network: MaestroSupportedNetworks,
-  maestroApiKey: string | any,
+ network: MaestroSupportedNetworks,
 ): SplashInstance {
-  let splashNetwork: Network = network.toLowerCase() as Network;
-
-  return SplashBuilder(
-    SplashApi({ network: splashNetwork }),
-    MaestroExplorer.new(splashNetwork, maestroApiKey),
-  );
+ let splashNetwork: Network = network.toLowerCase() as Network;
+ return SplashBuilder(
+   SplashApi({ network: splashNetwork }),
+   MaestroExplorer.new(splashNetwork, MAESTRO_API_KEYS[counter]),
+ );
 }
 
 /**
