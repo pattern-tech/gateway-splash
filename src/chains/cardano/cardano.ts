@@ -1,4 +1,4 @@
-import { LRUCache } from 'lru-cache';
+import {LRUCache} from 'lru-cache';
 import {
   CardanoConfig,
   CardanoConnectedInstance,
@@ -65,8 +65,6 @@ export class Cardano {
   private static _instances: LRUCache<string, Cardano>;
   private static _tokenMetadata: LRUCache<string, TokenRegistryMetadata>;
   public _assetMap: Record<string, CardanoToken> = {};
-  private _default_node_endpoint: string =
-    'https://mainnet.gomaestro-api.org/v1';
   private _chain: string = 'cardano';
   private _network: MaestroSupportedNetworks;
   private _node: MaestroClient;
@@ -99,10 +97,14 @@ export class Cardano {
     else new_network = 'Preview';
     this._network = new_network;
     this._node = new MaestroClient(
-      getMaestroConfig(new_network, config.network.nodeURL),
+      getMaestroConfig(
+        new_network,
+        config.network.nodeURL,
+        Cardano.maestroApiKey,
+      ),
     );
 
-    this._dex = getSplashInstance(new_network);
+    this._dex = getSplashInstance(new_network, Cardano.maestroApiKey);
     this.controller = CardanoController;
     this.minFee = minFee; // the "1" is the init number, must be changed for each transaction based on the transaction size
     this.utxosLimit = config.network.utxosLimit; // maximum number of utxos while using the `getAddressUtxos`
@@ -132,19 +134,13 @@ export class Cardano {
    */
   private async loadTokenMetadata(): Promise<void> {
     // loading the metadata with backoff
-    try {
-      Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
-        Object.values(this._assetMap),
-        this._node,
-      );
-    } catch {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.updateSplash();
-    }
+    Cardano._tokenMetadata = await getTokenMetadataWithBackoff(
+      Object.values(this._assetMap),
+      this._node,
+    );
     return;
   }
+
   /**
    * Checks the validation of the given Maestro API key
    * @returns {Promise<void>}
@@ -277,16 +273,7 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   public async getNetworkHeight(): Promise<number> {
-    try {
-      return (await this._node.general.chainTip()).data.height;
-    } catch {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
-      return 1;
-    }
+    return (await this._node.general.chainTip()).data.height;
   }
 
   /**
@@ -353,11 +340,6 @@ export class Cardano {
       ).data;
       return utxos;
     } catch (err) {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
       throw new Error(String(err));
     }
   }
@@ -604,11 +586,6 @@ export class Cardano {
         6,
       );
     } catch (error) {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
       throw new Error(
         `Error while fetching the ${accountAddress} balance, Node: ${error}`,
       );
@@ -637,8 +614,7 @@ export class Cardano {
 
         const tokenDecimals = isAda
           ? 6
-          : (Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ??
-            0);
+          : Cardano._tokenMetadata.get(tokenName.toUpperCase())?.decimals ?? 0;
         if (assets[tokenName.toUpperCase()] === undefined) {
           assets[tokenName.toUpperCase()] = BigNumber(0);
         }
@@ -941,11 +917,6 @@ export class Cardano {
         txHash: cancelTxHash,
       };
     } catch (error) {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
       throw new Error(`${error}`);
     }
   }
@@ -992,11 +963,6 @@ export class Cardano {
 
       return total_fee.toString();
     } catch (error) {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
       throw new Error(`Failed to the estimate the fee ${error}`);
     }
   }
@@ -1092,20 +1058,11 @@ export class Cardano {
    * @returns {Promise<number>}
    */
   private async getBlockTimestamp(): Promise<number> {
-    try {
-      const blockInfo = await this._node.blocks.blockInfo(
-        String(await this.getNetworkHeight()),
-      );
+    const blockInfo = await this._node.blocks.blockInfo(
+      String(await this.getNetworkHeight()),
+    );
 
-      return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
-    } catch {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
-      return 1;
-    }
+    return parseInt(blockInfo.data.timestamp.replace(/[-: ]/g, ''));
   }
 
   /**
@@ -1121,11 +1078,6 @@ export class Cardano {
 
       return txHash;
     } catch (err) {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
       throw new Error(
         `Error while signing and submitting the transaction: \n ${err}`,
       );
@@ -1391,16 +1343,7 @@ export class Cardano {
    * @returns {Promise<TransactionInfo | undefined>} The transaction details
    */
   public async getTx(txHash: string): Promise<TransactionInfo | undefined> {
-    try {
-      return (await this._node.transactions.txInfo(txHash)).data;
-    } catch {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
-      return;
-    }
+    return (await this._node.transactions.txInfo(txHash)).data;
   }
 
   /**
@@ -1429,21 +1372,6 @@ export class Cardano {
    * @returns {Promise<TxManagerState | undefined>} The transaction details
    */
   public async getTxState(txHash: string): Promise<TxManagerState | undefined> {
-    try {
-      return await this._node.txManager.txManagerState(txHash);
-    } catch {
-      this._node = new MaestroClient(
-        getMaestroConfig('Mainnet', this._default_node_endpoint),
-      );
-      await this.activateExistingWallet();
-      await this.updateSplash();
-      return;
-    }
-  }
-
-  private async updateSplash() {
-    let address = await this._dex.api.getActiveAddress();
-    this._dex = getSplashInstance('Mainnet');
-    await this.getAccountFromAddress(address);
+    return await this._node.txManager.txManagerState(txHash);
   }
 }
