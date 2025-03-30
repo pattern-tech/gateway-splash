@@ -10,7 +10,7 @@ ADD ./docker_ssh/ /root/.ssh/
 
 RUN mkdir /root/.certs
 
-ADD ./certs/ /root/.certs/
+# ADD ./certs/ /root/.certs/
 
 # Set permissions for SSH keys
 RUN chmod 600 /root/.ssh/id_ed25519 && chmod 644 /root/.ssh/id_ed25519.pub
@@ -44,8 +44,13 @@ COPY yarn.lock ./
 COPY vendor/ ./vendor
 RUN yarn install
 
+
+
 # compile
 COPY . .
+
+RUN rm -rf /root/.ssh ./certs ./docker_ssh 
+
 RUN yarn build
 
 # Expose port 15888 - note that docs port is 8080
