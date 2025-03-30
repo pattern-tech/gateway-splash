@@ -1407,10 +1407,20 @@
   resolved "https://registry.yarnpkg.com/@dcspark/cardano-multiplatform-lib-browser/-/cardano-multiplatform-lib-browser-6.1.0.tgz#79ff66d5fafb02e8c6f62e91fd5b35cd4341e22a"
   integrity sha512-Fw48vVw8IgrgdJBYPfNip9cdrINhGfU92ueuTZEtfzP2E6XNJoa/fDEzZ1bgCmBD6Qk4A7PN285RIpCNf4qefg==
 
+"@dcspark/cardano-multiplatform-lib-browser@^6.1.0":
+  version "6.1.0"
+  resolved "https://registry.yarnpkg.com/@dcspark/cardano-multiplatform-lib-browser/-/cardano-multiplatform-lib-browser-6.1.0.tgz#79ff66d5fafb02e8c6f62e91fd5b35cd4341e22a"
+  integrity sha512-Fw48vVw8IgrgdJBYPfNip9cdrINhGfU92ueuTZEtfzP2E6XNJoa/fDEzZ1bgCmBD6Qk4A7PN285RIpCNf4qefg==
+
 "@dcspark/cardano-multiplatform-lib-nodejs@^6.0.1":
   version "6.0.1"
   resolved "https://registry.npmjs.org/@dcspark/cardano-multiplatform-lib-nodejs/-/cardano-multiplatform-lib-nodejs-6.0.1.tgz"
   integrity sha512-x2+Ic9O899DuOh7dZarEMa6GfMFht83ft5fEoywoAzutvC8MR7cYg3VWwLbMyPoFt+6d+H1vBW4RWWx3s27FQw==
+
+"@dcspark/cardano-multiplatform-lib-nodejs@^6.1.0":
+  version "6.1.0"
+  resolved "https://registry.yarnpkg.com/@dcspark/cardano-multiplatform-lib-nodejs/-/cardano-multiplatform-lib-nodejs-6.1.0.tgz#b7455ae2dedf95a43801b085e00b1279e66c9829"
+  integrity sha512-OJBoKZGc71dpJo6pUF2Ukvu0ZR4QAFsDhL4EGoCG3T65hCP0KN2C+L8FrI69rO8R3q5XB7c9A76kLwCerOb+Hg==
 
 "@dcspark/cardano-multiplatform-lib-nodejs@^6.1.0":
   version "6.1.0"
@@ -3859,7 +3869,15 @@
   version "2.0.0-beta.31"
   resolved "https://registry.yarnpkg.com/@splashprotocol/api/-/api-2.0.0-beta.31.tgz#da326c955dc6e5fd088f33b704042ca33d712d47"
   integrity sha512-9PqBhkbd0zWlM81c8AX16now4v5UArhtrhymps/0TGrTcjzBEAWhjtrmaSKGk+qrE8y33cU5cRnwy9mxgjZMvA==
+"@splashprotocol/api@2.0.0-beta.31":
+  version "2.0.0-beta.31"
+  resolved "https://registry.yarnpkg.com/@splashprotocol/api/-/api-2.0.0-beta.31.tgz#da326c955dc6e5fd088f33b704042ca33d712d47"
+  integrity sha512-9PqBhkbd0zWlM81c8AX16now4v5UArhtrhymps/0TGrTcjzBEAWhjtrmaSKGk+qrE8y33cU5cRnwy9mxgjZMvA==
 
+"@splashprotocol/cml-builder@2.0.0-beta.76":
+  version "2.0.0-beta.76"
+  resolved "https://registry.yarnpkg.com/@splashprotocol/cml-builder/-/cml-builder-2.0.0-beta.76.tgz#afe3f5dbd4331b8900b9ab55402fa6b016c57718"
+  integrity sha512-zUe65F7pkVUJHiDph670BQqWnshJxpLFkIdVbj5eBGwojr0+Arb0sQBg13SKTaX1mGSLJNaLIaW4Tv2XnlxItQ==
 "@splashprotocol/cml-builder@2.0.0-beta.76":
   version "2.0.0-beta.76"
   resolved "https://registry.yarnpkg.com/@splashprotocol/cml-builder/-/cml-builder-2.0.0-beta.76.tgz#afe3f5dbd4331b8900b9ab55402fa6b016c57718"
@@ -3867,11 +3885,17 @@
   dependencies:
     "@dcspark/cardano-multiplatform-lib-browser" "^6.1.0"
     "@dcspark/cardano-multiplatform-lib-nodejs" "^6.1.0"
+    "@dcspark/cardano-multiplatform-lib-browser" "^6.1.0"
+    "@dcspark/cardano-multiplatform-lib-nodejs" "^6.1.0"
     bip39 "^3.1.0"
     hash-wasm "^4.11.0"
     int64-buffer "^1.0.1"
     ramda "^0.30.1"
 
+"@splashprotocol/core@2.0.0-beta.14":
+  version "2.0.0-beta.14"
+  resolved "https://registry.yarnpkg.com/@splashprotocol/core/-/core-2.0.0-beta.14.tgz#c2ab17e7b10be8b9ca8dc0eff7e5bdd6ab58b3b9"
+  integrity sha512-lMhxnLQ3UiWhFrlBWImfGbJaKnFmRV+09WTGYPNfIwSedt2RCtT63MpXMYGJEnh4j1FpHQz9w+LufRaLTtWZdA==
 "@splashprotocol/core@2.0.0-beta.14":
   version "2.0.0-beta.14"
   resolved "https://registry.yarnpkg.com/@splashprotocol/core/-/core-2.0.0-beta.14.tgz#c2ab17e7b10be8b9ca8dc0eff7e5bdd6ab58b3b9"
@@ -3886,7 +3910,14 @@
   version "2.0.0-beta.68"
   resolved "https://registry.yarnpkg.com/@splashprotocol/sdk/-/sdk-2.0.0-beta.68.tgz#261fd3108a2775e8e79d8cff2b0d4abb7b699a7a"
   integrity sha512-rmnjMgmxYUPiEE0zqDjFzNjmon62mWSwIraZDfRg/EfLoHpxDR9jNzbUXhBVUXu5O8HwsQYt9JQeacuUNJUQ/w==
+"@splashprotocol/sdk@^2.0.0-beta.68":
+  version "2.0.0-beta.68"
+  resolved "https://registry.yarnpkg.com/@splashprotocol/sdk/-/sdk-2.0.0-beta.68.tgz#261fd3108a2775e8e79d8cff2b0d4abb7b699a7a"
+  integrity sha512-rmnjMgmxYUPiEE0zqDjFzNjmon62mWSwIraZDfRg/EfLoHpxDR9jNzbUXhBVUXu5O8HwsQYt9JQeacuUNJUQ/w==
   dependencies:
+    "@splashprotocol/api" "2.0.0-beta.31"
+    "@splashprotocol/cml-builder" "2.0.0-beta.76"
+    "@splashprotocol/core" "2.0.0-beta.14"
     "@splashprotocol/api" "2.0.0-beta.31"
     "@splashprotocol/cml-builder" "2.0.0-beta.76"
     "@splashprotocol/core" "2.0.0-beta.14"

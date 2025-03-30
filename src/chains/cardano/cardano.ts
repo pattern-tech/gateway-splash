@@ -56,6 +56,7 @@ import {
   getJsonFiles,
   getLastPath,
 } from '../../services/wallet/wallet.controllers';
+import { CancelRequest, CancelResponse } from '../chain.requests';
 
 /**
  * Main Cardano class for interacting with the cardano blockchain.
@@ -248,7 +249,12 @@ export class Cardano {
     hash: string,
     index: number = 0,
   ): Promise<boolean> {
-    return await isOOROrder(`${hash}:${index}`, this._dex);
+    try {
+      let res = await isOOROrder(`${hash}:${index}`, this._dex);
+      return res;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -335,6 +341,9 @@ export class Cardano {
     params?: TxRequestParams,
   ): Promise<UtxoWithSlot[]> {
     try {
+
+      await this.activateExistingWallet();
+
       let utxos: Array<UtxoWithSlot> = [];
       utxos = (
         await this._node.addresses.utxosByAddress(address, {
@@ -768,8 +777,6 @@ export class Cardano {
 
     let txHash = await this.signAndSubmitTransaction(swapTx);
 
-    // let confirmResult = await this.confirmOrder(txHash, 0, orderTimeout); // if using, use with delay, generally this line is not needed
-
     return this.createTradeResponse(
       buy ? baseCardanoToken : quoteCardanoToken,
       buy ? quoteCardanoToken : baseCardanoToken,
@@ -890,23 +897,30 @@ export class Cardano {
    * @param {number} index - The index which the order is placed in the tx objects
    * @returns {Promise<string>} cancellation tx hash
    */
-  public async cancel(txHash: string, index: number = 0): Promise<string> {
+  public async cancel(params: CancelRequest): Promise<CancelResponse> {
     try {
-      console.log(`order failure, cancelling ${txHash}:${index}`);
+      console.log(
+        `order failure, cancelling ${params.address}:${params.nonce}`,
+      );
       let cancelTxHash = await this._dex.explorer.submitTx(
         (
           await (
             await this._dex
               .newTx()
               .cancelOperation({
-                txHash,
-                index,
+                txHash: params.address,
+                index: params.nonce,
               })
               .complete()
           ).sign()
         ).cbor,
       );
-      return cancelTxHash;
+      return {
+        network: 'mainnet',
+        timestamp: await this.getBlockTimestamp(),
+        latency: 1,
+        txHash: cancelTxHash,
+      };
     } catch (error) {
       this._node = new MaestroClient(
         getMaestroConfig(
@@ -1202,6 +1216,7 @@ export class Cardano {
       const temp_base = buy ? quoteToken : baseToken;
       const temp_quote = buy ? baseToken : quoteToken;
       console.log('these are the base and quote', temp_base, temp_quote, buy);
+      console.log('these are the base and quote', temp_base, temp_quote, buy);
       if (temp_base.name === temp_quote.name) estimatedFee = '0';
       estimatedFee = await this.estimateFee(
         temp_base.token.withAmount(
@@ -1393,6 +1408,9 @@ export class Cardano {
     address: string,
     params?: TxRequestParams,
   ): Promise<AddressTransaction[] | undefined> {
+
+    await this.activateExistingWallet();
+
     return (
       await this._node.addresses.txsByAddress(address, {
         count: params?.limit || this.utxosLimit,
