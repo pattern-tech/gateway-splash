@@ -1,0 +1,7 @@
+networks:
+  mainnet:
+    nodeURL: "https://mainnet.gomaestro-api.org/v1"
+    maxLRUCacheInstances: "1000"
+    utxosLimit: "100"
+    defaultSlippage: "5"
+    nativeCurrencySymbol: "ADA"
