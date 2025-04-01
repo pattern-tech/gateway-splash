@@ -78,7 +78,6 @@ export async function addWallet(
         passphrase,
       );
     } else if (connection instanceof Cardano) {
-      console.log("this is the received private key: ", req.privateKey)
       const account = await connection.getAccountFromMnemonic(req.privateKey);
       address = account.generateBaseAddress();
       encryptedPrivateKey = await connection.encrypt(req.privateKey, passphrase);
