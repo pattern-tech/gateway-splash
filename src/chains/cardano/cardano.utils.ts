@@ -20,7 +20,8 @@ import { getCardanoConfig } from './cardano.config';
 import sha256 from 'crypto-js/sha256';
 import { enc } from 'crypto-js';
 
-dotenv.config({ path: '../../../.env' });
+// dotenv.config({ path: '../../../.env' });
+dotenv.config();
 let counter = -1;
 let MAESTRO_API_KEYS = process.env.MAESTRO_API_KEY!.split(', ')
 let len_env = MAESTRO_API_KEYS.length
