@@ -176,12 +176,14 @@ export async function getTokenMetadata(
     if (current_metadata && current_metadata.decimals <=1) {
       return current_metadata;
     } else {
+      console.log("returning the cached metadata")
       return (await maestroClient.assets.assetInfo(`${policyId}${base16Name}`))
       .data.token_registry_metadata;
     }
   } catch (error) {
     // 429
     // 403
+    console.log("token metadata fetching failed", error)
     return undefined;
   }
 }

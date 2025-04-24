@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "skipLibCheck": true,
     "strict": false,
     // "types": ["jest", "node"],
     "target": "ESNext",
@@ -27,6 +26,7 @@
     "forceConsistentCasingInFileNames": true,
     "typeRoots": ["node_modules/@types", "src/@types"],
     "downlevelIteration": true,
+    "skipLibCheck": true,
   },
   "exclude": [
     "node_modules",

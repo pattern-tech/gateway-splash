@@ -1032,7 +1032,7 @@ export class Cardano {
 
     let current_base_metadata = Cardano._tokenMetadata.get(baseToken);
     let current_quote_metadata = Cardano._tokenMetadata.get(quoteToken);
-
+    console.log("here are chached ones", current_base_metadata, current_quote_metadata)
     let baseMetadata = await getTokenMetadata(
       current_base_metadata ?? null,
       realBaseToken.policyId,
@@ -1059,9 +1059,11 @@ export class Cardano {
 
     // updating metadata
     if (!current_base_metadata) {
+      console.log("lack of base, setting base")
       Cardano._tokenMetadata.set(baseToken, baseMetadata);
     }
     if (!current_quote_metadata) {
+      console.log("lack of quote, setting quote")
       Cardano._tokenMetadata.set(quoteToken, quoteMetadata);
     }
 
