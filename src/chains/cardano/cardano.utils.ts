@@ -173,7 +173,7 @@ export async function getTokenMetadata(
   }
 
   try {
-    if (current_metadata && current_metadata.decimals <=1) {
+    if (current_metadata && current_metadata.decimals >= 0) {
       return current_metadata;
     } else {
       console.log("returning the cached metadata")
