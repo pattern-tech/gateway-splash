@@ -8,7 +8,7 @@ export namespace SplashConfig {
     allowedSlippage: configManager.get('cardano.allowedSlippage'),
     gasLimitEstimate: configManager.get('cardano.gasLimitEstimate'),
     tradingTypes: ['AMM'],
-    chainType: 'CARDANO',
+    chainType: 'PVM',
     availableNetworks: [{ chain: 'cardano', networks: ['mainnet'] }],
   };
 }

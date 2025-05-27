@@ -3,23 +3,24 @@ import { Type, Static } from '@sinclair/typebox';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { JupiterConfig } from './jupiter/jupiter.config';
 import { MeteoraConfig } from './meteora/meteora.config';
-import { SplashConfig } from './splash/splash.config'
+import { SplashConfig } from './splash/splash.config';
 import { logger } from '../services/logger';
 
 // Define the schema using Typebox
 const NetworkSchema = Type.Object({
   chain: Type.String(),
-  networks: Type.Array(Type.String())
+  networks: Type.Array(Type.String()),
 });
 
 const ConnectorSchema = Type.Object({
   name: Type.String(),
   trading_type: Type.Array(Type.String()),
-  available_networks: Type.Array(NetworkSchema)
+  available_networks: Type.Array(NetworkSchema),
+  chain_type: Type.Optional(Type.String()),
 });
 
 const ConnectorsResponseSchema = Type.Object({
-  connectors: Type.Array(ConnectorSchema)
+  connectors: Type.Array(ConnectorSchema),
 });
 
 // Type for TypeScript
@@ -30,43 +31,50 @@ export const connectorsRoutes: FastifyPluginAsync = async (fastify) => {
     '/',
     {
       schema: {
-        description: 'Returns a list of available DEX connectors and their supported blockchain networks.',
+        description:
+          'Returns a list of available DEX connectors and their supported blockchain networks.',
         tags: ['connectors'],
         response: {
-          200: ConnectorsResponseSchema
-        }
-      }
+          200: ConnectorsResponseSchema,
+        },
+      },
     },
     async () => {
       logger.info('Getting available DEX connectors and networks');
-      
+
       const connectors = [
         {
           name: 'uniswap',
           trading_type: UniswapConfig.config.tradingTypes,
           available_networks: UniswapConfig.config.availableNetworks,
+          chain_type: "EVM"
         },
         {
           name: 'jupiter',
           trading_type: JupiterConfig.config.tradingTypes,
           available_networks: JupiterConfig.config.availableNetworks,
+          chain_type: "SVM"
         },
         {
           name: 'meteora',
           trading_type: MeteoraConfig.config.tradingTypes,
           available_networks: MeteoraConfig.config.availableNetworks,
+          chain_type: "SVM"
         },
         {
           name: 'splash',
           trading_type: SplashConfig.config.tradingTypes,
           available_networks: SplashConfig.config.availableNetworks,
+          chain_type: SplashConfig.config.chainType,
         },
       ];
 
-      logger.info('Available connectors: ' + connectors.map(c => c.name).join(', '));
+      logger.info(
+        'Available connectors: ' + connectors.map((c) => c.name).join(', '),
+      );
 
       return { connectors };
-    }
+    },
   );
 };
 
